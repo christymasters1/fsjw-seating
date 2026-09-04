@@ -34,7 +34,7 @@
       throw new Error('The app package did not pass its integrity check.');
     }
     appHtml=appHtml.replace('</head>','<link rel="stylesheet" href="patch/v6.css?v=6"></head>');
-    appHtml=appHtml.replace('</body>','<script src="patch/v6.js?v=6"><\/script></body>');
+    appHtml=appHtml.replace('</body>','<script src="patch/v6.js?v=6"><\/script><script src="patch/v7.js?v=7"><\/script></body>');
     document.open();
     document.write(appHtml);
     document.close();
