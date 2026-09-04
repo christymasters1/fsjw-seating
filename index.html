@@ -29,10 +29,12 @@
     const bytes=new Uint8Array(bin.length);
     for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
     const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-    const appHtml=await new Response(stream).text();
+    let appHtml=await new Response(stream).text();
     if(!appHtml.includes('<title>FSJW Seating Manager</title>') || !appHtml.includes('Priority Request Worklists')) {
       throw new Error('The app package did not pass its integrity check.');
     }
+    appHtml=appHtml.replace('</head>','<link rel="stylesheet" href="patch/v6.css?v=6"></head>');
+    appHtml=appHtml.replace('</body>','<script src="patch/v6.js?v=6"><\/script></body>');
     document.open();
     document.write(appHtml);
     document.close();
