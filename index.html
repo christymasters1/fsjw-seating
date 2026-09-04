@@ -762,7 +762,7 @@ function renderDetails() {
   });
 }
 
-async async function addReservationNote(rezIdOverride=null, inputOverride=null) {
+async function addReservationNote(rezIdOverride=null, inputOverride=null) {
   const rezId = String(rezIdOverride || selectedRez || "");
   if (!rezId || noteSaveInFlight) return;
 
