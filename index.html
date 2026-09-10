@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL SOURCE: occupied seats open their reservation; open seats move selected guest -->
+<!-- CANONICAL SOURCE: standalone source; no runtime patches; reservation details imported natively -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -247,8 +247,50 @@ button[disabled]{opacity:.58;cursor:not-allowed}
 .requestExplain{padding:0 14px 10px;font-size:10px;color:var(--muted)}
 @media(max-width:760px){.requestMetrics{grid-template-columns:1fr 1fr}.requestTop{flex-direction:column}}
 
+
+#rightReservationCoreFields{margin:7px 0 11px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.rightRezGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0 11px}
+.rightRezField{padding:7px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;min-width:0}
+.rightRezField span{display:block;font-size:8px;line-height:1.2;text-transform:uppercase;letter-spacing:.04em;font-weight:800;color:var(--muted);margin-bottom:2px}
+.rightRezField b{display:block;font-size:10px;line-height:1.3;color:var(--navy);word-break:break-word}
+.rightRezGuestName{margin:0 0 8px;padding:8px 9px;background:#eef3ff;border:1px solid #cfdbf5;border-radius:7px}
+.rightRezGuestName span{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.05em;font-weight:800;color:var(--muted);margin-bottom:2px}
+.rightRezGuestName b{display:block;font-size:13px;line-height:1.25;color:var(--navy)}
+
+
+/* v6 compact workflow patch */
+#requestWorkbench{display:none!important}
+.workModeBtn{position:relative}
+.workModeBtn.active{background:var(--navy)!important;color:#fff!important;border-color:var(--navy)!important}
+.workModeBtn .workBadge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#fff1d0;color:#835900;font-size:9px;font-weight:800;margin-left:4px}
+.workModeBtn.active .workBadge{background:#fff;color:var(--navy)}
+#workQueueMode{display:none;min-height:0}
+.workQueueHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.workQueueHead .kicker{margin:0}
+.queueBack{border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:6px;padding:5px 7px;font-size:9px;font-weight:800}
+.workMiniMetrics{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:7px 0 8px}
+.workMiniMetric{border:1px solid var(--line);border-radius:7px;padding:7px;background:#f8fafc}
+.workMiniMetric b{display:block;color:var(--navy);font-size:17px;line-height:1}
+.workMiniMetric span{display:block;margin-top:3px;color:var(--muted);font-size:8px;line-height:1.25}
+.workMiniMetric.sellable{background:#edf8f1;border-color:#cce9d6}.workMiniMetric.sellable b{color:var(--green)}
+.workQueueInfo{font-size:9px;line-height:1.35;color:var(--muted);margin-bottom:8px}
+.workCards{display:flex;flex-direction:column;gap:7px}
+.workCard{border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;cursor:pointer}.workCard:hover{background:#f8faff}.workCard.active{border-color:var(--navy);box-shadow:inset 4px 0 0 var(--navy)}
+.workCardTop{display:flex;justify-content:space-between;gap:6px;align-items:center}.workCardRez{font-weight:800;font-size:11px;color:var(--navy)}
+.workCardStatus{font-size:8px;font-weight:800;border-radius:999px;padding:3px 5px;background:#fff3d8;color:#8a5d00;white-space:nowrap}.workCardStatus.confirmed,.workCardStatus.approved,.workCardStatus.completed{background:#e9f7ef;color:#18723f}.workCardStatus.working,.workCardStatus.waitlist{background:#eef3ff;color:var(--navy)}.workCardStatus.not_available{background:#fde8ea;color:#a91d2c}
+.workCardNames{font-size:11px;font-weight:700;margin-top:4px;line-height:1.3}.workCardMeta{font-size:9px;color:var(--muted);margin-top:4px;line-height:1.35}.workCardRequest{font-size:9px;color:#4f5863;margin-top:5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.workCardBlue{display:inline-block;margin-top:5px;background:#e8f6ee;color:#17653d;border-radius:999px;padding:3px 6px;font-size:8px;font-weight:800}
+.workCardActions{display:flex;gap:5px;align-items:center;margin-top:7px}.workCardActions select{min-width:0;flex:1;border:1px solid var(--line);border-radius:6px;padding:5px 6px;background:#fff;color:var(--navy);font-size:9px;font-weight:700}.workCardActions button{border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:6px;padding:5px 7px;font-size:9px;font-weight:800}
+.workQueueFooter{font-size:9px;color:var(--muted);margin-top:8px;padding-top:7px;border-top:1px solid var(--line)}
+
+/* Desktop workspace order: working reservation/details left, seating map center, reservation list right. */
+@media (min-width:1201px){
+  .workspace{grid-template-columns:285px minmax(900px,1fr) 285px}
+  .rightbar{grid-column:1;grid-row:1}
+  .mapcard{grid-column:2;grid-row:1}
+  .sidebar{grid-column:3;grid-row:1}
+}
+
 </style>
-<link rel="stylesheet" href="patch/v6.css?v=6">
 </head>
 <body>
 
@@ -299,7 +341,7 @@ button[disabled]{opacity:.58;cursor:not-allowed}
       </div>
       <div class="requestTabs">
         <button class="active" data-request-view="suite">Suite Requests <span id="suiteRequestCount"></span></button>
-        <button data-request-view="room">Room Upgrade Requests <span id="roomRequestCount"></span></button>
+        <button data-request-view="room">Room Upgrades <span id="roomRequestCount"></span></button>
         <button data-request-view="group">Group Seating <span id="groupRequestCount"></span></button>
       </div>
       <div id="requestMetrics" class="requestMetrics"></div>
@@ -1076,6 +1118,20 @@ function renderReservationList() {
   box.appendChild(fragment);
 }
 
+
+function formatReservationDetailDate(raw) {
+  if (!raw) return "Not available";
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? String(raw) : d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+}
+function reservationDetailField(label, value) {
+  return '<div class="rightRezField"><span>' + esc(label) + '</span><b>' + esc(value || "Not available") + '</b></div>';
+}
+function selectedGuestDisplayName(gs) {
+  const guest = gs.find(g => String(g.id) === String(selectedGuest)) || gs[0];
+  return guest?.guest_name || "Reservation";
+}
+
 function renderDetails() {
   const host = $("reservationDetail");
   if (!selectedRez) {
@@ -1098,7 +1154,20 @@ function renderDetails() {
       esc(assignment?.seat_id || "Unassigned") + '</span></button>';
   }).join("");
 
+  const detailLength = record?.night_count !== null && record?.night_count !== undefined && record?.night_count !== ""
+    ? String(record.night_count) + " night" + (String(record.night_count) === "1" ? "" : "s")
+    : "Not available";
+
   host.innerHTML =
+    '<div class="rightRezGuestName"><span>Viewing Guest</span><b>' + esc(selectedGuestDisplayName(gs)) + '</b></div>' +
+    '<div class="rightRezGrid">' +
+      reservationDetailField("Room Type", record?.category_code || "Not available") +
+      reservationDetailField("Seat Upgrade Fee", record?.seat_upgrade_status || "Not available") +
+      reservationDetailField("Date of Reservation", formatReservationDetailDate(record?.created_on)) +
+      reservationDetailField("Check-In", formatReservationDetailDate(record?.start_date)) +
+      reservationDetailField("Check-Out", formatReservationDetailDate(record?.end_date)) +
+      reservationDetailField("Length of Stay", detailLength) +
+    '</div><div class="rule"></div>' +
     '<div class="detailLabel">Guest to seat</div>' +
     (guestButtons || '<div class="detailText">No guests found.</div>') +
     '<div class="detailLabel">RezMagic comments</div>' +
@@ -1565,10 +1634,29 @@ async function preflightCSV(file) {
           reservation_comments:"",
           guest_comments:"",
           requests:new Set(),
-          guests:new Set()
+          guests:new Set(),
+          created_on:"",
+          start_date:"",
+          end_date:"",
+          category_code:"",
+          night_count:null,
+          seat_upgrade_status:""
         });
       }
       const target = byRez.get(rezId);
+      target.created_on = target.created_on || String(source.CreatedOn || "").trim();
+      target.start_date = target.start_date || String(source.AdjStartDate || "").trim();
+      target.end_date = target.end_date || String(source.AdjEndDate || "").trim();
+      target.category_code = target.category_code || String(source.PrimaryCategoryCode || "").trim();
+      if (target.night_count === null) {
+        const nights = Number(String(source.NightCount || "").trim());
+        target.night_count = Number.isFinite(nights) ? nights : null;
+      }
+      const upgradeCode = String(source.AddOnCategoryName || "").trim();
+      const upgradeProduct = String(source.AddOnProductName || "").trim();
+      if (upgradeCode === "SUP" || /^Concert Seating Upgrade$/i.test(upgradeProduct)) {
+        target.seat_upgrade_status = "Upgrade on reservation";
+      }
 
       const guestName = String(source.PartyName || "").trim();
       if (guestName) target.guests.add(guestName);
@@ -1659,7 +1747,7 @@ function showPrivacyPreflight() {
         ).join("<br>") +
         '</div>'
       : '<div class="privacy-ok">Privacy preflight passed.</div>') +
-    '<div class="small" style="margin-top:9px"><b>Upload whitelist:</b> Rez number, guest name, seat, sanitized comments/requests. Raw CSV, email, phone, address, balance/payment, and unrelated RezMagic fields are not stored.</div>';
+    '<div class="small" style="margin-top:9px"><b>Upload whitelist:</b> Rez number, guest name, seat, sanitized comments/requests, room type, reservation date, check-in, check-out, length of stay, and seat-upgrade presence. Raw CSV, email, phone, address, balance/payment, and unrelated RezMagic fields are not stored.</div>';
 
   $("privacyModal").style.display = "flex";
 }
@@ -1767,6 +1855,12 @@ async function executeImport() {
       reservation_comments:v.reservation_comments,
       guest_comments:v.guest_comments,
       requests:[...v.requests],
+      created_on:v.created_on || null,
+      start_date:v.start_date || null,
+      end_date:v.end_date || null,
+      category_code:v.category_code || null,
+      night_count:v.night_count,
+      seat_upgrade_status:v.seat_upgrade_status || null,
       last_seen_import:batchId,
       status:"active",
       updated_at:now
@@ -2192,13 +2286,753 @@ setInterval(() => {
 }, 15000);
 
 </script>
-<script src="patch/v6.js?v=6"></script>
-<script src="patch/v7.js?v=7"></script>
-<script src="patch/v8.js?v=8"></script>
-<script src="patch/v9.js?v=9"></script>
-<script src="patch/v10.js?v=10"></script>
-<script src="patch/v11.js?v=11"></script>
-<script src="patch/v12.js?v=13"></script>
-<script src="patch/v13.js?v=13"></script>
+<script>
+"use strict";
+(function(){
+  const oldWorkbench=document.getElementById("requestWorkbench");
+  if(oldWorkbench) oldWorkbench.remove();
+
+  const actions=document.querySelector(".actions");
+  const changesBtn=document.getElementById("changes");
+  if(actions && changesBtn && !document.querySelector('[data-work-mode="suite"]')){
+    const defs=[["suite","Work Suites","suiteWorkBadge"],["room","Room Upgrades","roomWorkBadge"],["group","Group Seating","groupWorkBadge"]];
+    defs.forEach(([mode,label,badgeId])=>{
+      const b=document.createElement("button");
+      b.className="workModeBtn"; b.dataset.workMode=mode;
+      b.innerHTML=label+' <span id="'+badgeId+'" class="workBadge">0</span>';
+      actions.insertBefore(b,changesBtn);
+    });
+  }
+
+  const sidebar=document.querySelector(".sidebar");
+  if(sidebar && !document.getElementById("workQueueMode")){
+    const original=Array.from(sidebar.childNodes);
+    const normal=document.createElement("div"); normal.id="reservationSearchMode";
+    original.forEach(node=>normal.appendChild(node));
+    sidebar.appendChild(normal);
+    const work=document.createElement("div"); work.id="workQueueMode";
+    work.innerHTML='<div class="workQueueHead"><div class="kicker" id="workQueueTitle">Working Queue</div><button id="queueBack" class="queueBack">All Reservations</button></div><div id="workMiniMetrics" class="workMiniMetrics"></div><div id="workQueueInfo" class="workQueueInfo"></div><div id="workCards" class="workCards"></div><div id="workQueueFooter" class="workQueueFooter"></div>';
+    sidebar.appendChild(work);
+  }
+
+  requestView="";
+
+  window.workRowRezId=function(row){return String(row?.rez_id||row?.dateRecord?.rez_id||"");};
+  window.activeWorkRows=function(mode){
+    if(mode==="suite") return suiteRequestRows().filter(r=>{const status=latestRequestStatus(r.rez_id,"suite");const need=Math.max(0,rezGuestCount(r.rez_id)-blueSeatsForRez(r.rez_id));return status==="pending"||(status==="confirmed"&&need>0);});
+    if(mode==="room") return roomRequestRows().filter(r=>latestRequestStatus(r.rez_id,"room")==="pending");
+    if(mode==="group") return groupRequestRows().filter(r=>latestRequestStatus(r.rez_id,"group")!=="completed");
+    return [];
+  };
+  window.workStatusOptions=function(mode,status){
+    const options=mode==="suite"?[["pending","Pending"],["confirmed","Suite Confirmed"],["waitlist","Waitlist"],["not_available","Not Available"]]:mode==="room"?[["pending","Pending"],["approved","Approved"],["waitlist","Waitlist"],["not_available","Not Available"]]:[["pending","Pending"],["working","Working"],["completed","Completed"]];
+    return options.map(([v,l])=>'<option value="'+v+'"'+(status===v?' selected':'')+'>'+l+'</option>').join("");
+  };
+
+  window.saveRequestStatus=async function(rezId,type,status){
+    try{
+      setStatus("Saving request status…","busy");
+      await api("audit_log",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({user_id:session.user.id,action:"request_status",entity_type:"reservation",entity_id:String(rezId),new_value:{request_type:type,status,email:session.user.email}})});
+      requestStatuses=await apiAll("audit_log?select=*&action=eq.request_status&order=created_at.asc");
+      if(requestView){const rows=activeWorkRows(requestView);const still=rows.some(r=>String(workRowRezId(r))===String(selectedRez));if(!still&&rows.length){selectedRez=String(workRowRezId(rows[0]));const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;}}
+      renderAll();
+      setStatus("Request status saved. Next request loaded.","ok");
+    }catch(error){setStatus("Could not save request status: "+error.message,"warn");}
+  };
+
+  window.renderRequestWorkbench=function(){
+    const searchMode=document.getElementById("reservationSearchMode"),queueMode=document.getElementById("workQueueMode"),cardsHost=document.getElementById("workCards"),metricsHost=document.getElementById("workMiniMetrics"),infoHost=document.getElementById("workQueueInfo"),footerHost=document.getElementById("workQueueFooter");
+    if(!searchMode||!queueMode||!cardsHost) return;
+    const suiteActive=activeWorkRows("suite"),roomActive=activeWorkRows("room"),groupActive=activeWorkRows("group");
+    document.getElementById("suiteWorkBadge").textContent=suiteActive.length;document.getElementById("roomWorkBadge").textContent=roomActive.length;document.getElementById("groupWorkBadge").textContent=groupActive.length;
+    document.querySelectorAll("[data-work-mode]").forEach(button=>{button.classList.toggle("active",button.dataset.workMode===requestView);button.onclick=()=>{requestView=button.dataset.workMode;const rows=activeWorkRows(requestView);if(rows.length&&!new Set(rows.map(workRowRezId)).has(String(selectedRez))){selectedRez=String(workRowRezId(rows[0]));const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;}renderAll();};});
+    if(!requestView){searchMode.style.display="block";queueMode.style.display="none";return;}
+    searchMode.style.display="none";queueMode.style.display="block";
+    const labels={suite:"Suite Requests",room:"Room Upgrades",group:"Group Seating"};document.getElementById("workQueueTitle").textContent=labels[requestView];
+    const rows=activeWorkRows(requestView),visible=rows.slice(0,3);
+    if(requestView==="suite"){
+      const all=suiteRequestRows();const blueOccupied=assignments.filter(a=>{const row=String(a.seat_id||"").match(/^([A-Z]+)/)?.[1];return row&&BLUE_ROWS.has(row);}).length;const open=Math.max(0,BLUE_CAPACITY-blueOccupied);const committed=all.filter(r=>latestRequestStatus(r.rez_id,"suite")==="confirmed").reduce((sum,r)=>sum+Math.max(0,rezGuestCount(r.rez_id)-blueSeatsForRez(r.rez_id)),0);const sellable=Math.max(0,open-committed);
+      metricsHost.innerHTML='<div class="workMiniMetric sellable"><b>'+sellable+'</b><span>Blue seats available to sell</span></div><div class="workMiniMetric"><b>'+committed+'</b><span>Blue seats committed to confirmed suites</span></div><div class="workMiniMetric"><b>'+open+'</b><span>Physically open blue seats</span></div><div class="workMiniMetric"><b>'+rows.length+'</b><span>Suite requests still needing action</span></div>';
+      infoHost.textContent="Work oldest requests first. Confirming a suite immediately reserves the blue seats that party still needs.";
+    }else if(requestView==="room"){
+      metricsHost.innerHTML='<div class="workMiniMetric"><b>'+rows.length+'</b><span>Pending room upgrades</span></div><div class="workMiniMetric"><b>'+roomRequestRows().length+'</b><span>Total room-upgrade requests</span></div>';infoHost.textContent="Only the next three pending room upgrades are shown. Resolve one and the next request automatically feeds into the queue.";
+    }else{
+      const people=rows.reduce((s,r)=>s+Number(r.guestCount||0),0);metricsHost.innerHTML='<div class="workMiniMetric"><b>'+rows.length+'</b><span>Open seating groups</span></div><div class="workMiniMetric"><b>'+people+'</b><span>Guests in open groups</span></div>';infoHost.textContent="Open a group and its linked reservations stay purple on the map. Complete it and the next group feeds into the queue.";
+    }
+    cardsHost.innerHTML=visible.length?visible.map((r,index)=>{const rezId=workRowRezId(r),isGroup=requestView==="group",status=latestRequestStatus(rezId,requestView),names=isGroup?r.names:rezGuests(rezId).map(g=>g.guest_name).join(" / "),party=isGroup?r.guestCount:rezGuestCount(rezId),copy=isGroup?(r.memberIds.length+" linked reservations"):(requestText(r)||(requestView==="suite"?"Suite request":"Room upgrade request")),need=requestView==="suite"?Math.max(0,party-blueSeatsForRez(rezId)):0,active=String(selectedRez)===String(rezId)?" active":"",statusClass=status.replace(/[^a-z_]/g,"");return '<div class="workCard'+active+'" data-work-rez="'+esc(rezId)+'"><div class="workCardTop"><div class="workCardRez">'+(index===0?'WORK NOW · ':'')+'#'+esc(rezId)+'</div><span class="workCardStatus '+esc(statusClass)+'">'+esc(status.replace(/_/g," "))+'</span></div><div class="workCardNames">'+esc(names||"No guest name")+'</div><div class="workCardMeta">'+party+' guest'+(party===1?'':'s')+(isGroup?' · '+r.memberIds.map(id=>'#'+id).join(', '):' · reserved '+esc(formatRequestDate(r)))+'</div><div class="workCardRequest">'+esc(copy)+'</div>'+(requestView==="suite"?'<div class="workCardBlue">Needs '+need+' blue seat'+(need===1?'':'s')+'</div>':'')+'<div class="workCardActions"><select class="workStatusSelect" data-type="'+esc(requestView)+'" data-rez="'+esc(rezId)+'">'+workStatusOptions(requestView,status)+'</select><button class="workOpen" data-open-rez="'+esc(rezId)+'">Open</button></div></div>';}).join(""):'<div class="empty">Nothing pending in this queue.</div>';
+    footerHost.textContent=rows.length>3?'Showing 3 of '+rows.length+' active requests. Finish one and the next automatically appears.':rows.length+' active request'+(rows.length===1?'':'s')+' in this queue.';
+    document.getElementById("queueBack").onclick=()=>{requestView="";renderAll();};
+    cardsHost.querySelectorAll(".workCard").forEach(card=>card.addEventListener("click",e=>{if(e.target.closest("select,button"))return;selectedRez=card.dataset.workRez;const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;renderAll();}));
+    cardsHost.querySelectorAll(".workOpen").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();selectedRez=b.dataset.openRez;const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;renderAll();}));
+    cardsHost.querySelectorAll(".workStatusSelect").forEach(s=>{s.addEventListener("click",e=>e.stopPropagation());s.addEventListener("change",async e=>{e.stopPropagation();await saveRequestStatus(s.dataset.rez,s.dataset.type,s.value);});});
+  };
+
+  if(session && reservations.length) renderAll();
+})();
+
+</script>
+<script>
+"use strict";
+(function(){
+  let roomRezMagicUpdates=[];
+  const priorLoadAll=window.loadAll;
+  const priorActiveOpenChanges=window.activeOpenChanges;
+  const priorMarkEntered=window.markEntered;
+  const priorRenderChanges=window.renderChanges;
+  const priorSaveRequestStatus=window.saveRequestStatus;
+
+  function roomRequestLabel(rezId){
+    const record=reservations.find(r=>String(r.rez_id)===String(rezId));
+    if(!record) return "Room upgrade request";
+    const explicit=requestList(record).find(x=>/Room Type (?:Change )?Request/i.test(String(x)) && !/Suite/i.test(String(x)));
+    if(explicit) return String(explicit);
+    const text=requestText(record);
+    const king=text.match(/(?:room upgrade|upgrade|request|want|wants|change)[^.!]{0,70}\bking(?: bed| room)?\b/i);
+    if(king) return king[0].replace(/\s+/g," ").trim();
+    return "Room upgrade request";
+  }
+
+  async function loadRoomQueue(){
+    if(!session){roomRezMagicUpdates=[];return;}
+    roomRezMagicUpdates=await apiAll("audit_log?select=*&action=eq.room_rezmagic_update&order=created_at.asc");
+  }
+
+  function latestRoomEvent(rezId){
+    const rows=roomRezMagicUpdates.filter(x=>String(x.entity_id)===String(rezId));
+    return rows.length?rows[rows.length-1]:null;
+  }
+
+  async function addRoomQueueEvent(rezId,status,extra={}){
+    await api("audit_log",{
+      method:"POST",
+      headers:{Prefer:"return=minimal"},
+      body:JSON.stringify({
+        user_id:session.user.id,
+        action:"room_rezmagic_update",
+        entity_type:"reservation",
+        entity_id:String(rezId),
+        new_value:{queue_status:status,request_type:"room",request_text:roomRequestLabel(rezId),...extra}
+      })
+    });
+  }
+
+  async function backfillApprovedRooms(){
+    let added=0;
+    for(const record of roomRequestRows()){
+      if(latestRequestStatus(record.rez_id,"room")!=="approved") continue;
+      const latest=latestRoomEvent(record.rez_id);
+      const q=String(latest?.new_value?.queue_status||"");
+      if(q==="needs_update"||q==="synced") continue;
+      await addRoomQueueEvent(record.rez_id,"needs_update",{
+        current_category_code:record.category_code||null,
+        approved_by:"Existing approved request",
+        approved_at:new Date().toISOString()
+      });
+      added++;
+    }
+    if(added) await loadRoomQueue();
+  }
+
+  function roomQueueRows(includeSynced=false){
+    const latestByRez=new Map();
+    roomRezMagicUpdates.forEach(event=>latestByRez.set(String(event.entity_id),event));
+    const rows=[];
+    latestByRez.forEach((event,rezId)=>{
+      const q=String(event.new_value?.queue_status||"");
+      if(q==="cancelled") return;
+      if(q==="synced"&&!includeSynced) return;
+      if(q!=="needs_update"&&q!=="synced") return;
+      const names=rezGuests(rezId).map(g=>g.guest_name).join(" / ")||"Reservation";
+      rows.push({
+        id:"room:"+String(event.id),
+        kind:"room_upgrade",
+        rez_id:rezId,
+        guest_id:null,
+        guest_name:"ROOM · "+names,
+        rezmagic_seat:"Room upgrade",
+        working_seat:String(event.new_value?.request_text||roomRequestLabel(rezId)),
+        status:q,
+        created_at:event.created_at,
+        updated_at:event.created_at
+      });
+    });
+    return rows.sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0));
+  }
+
+  window.activeOpenChanges=function(){
+    return [...priorActiveOpenChanges(),...roomQueueRows(false)];
+  };
+
+  window.rowsForQueue=function(){
+    if(changeFilter==="synced"){
+      return [...rezChanges.filter(c=>c.status==="synced"),...roomQueueRows(true).filter(c=>c.status==="synced")]
+        .sort((a,b)=>new Date(b.updated_at||b.created_at||0)-new Date(a.updated_at||a.created_at||0));
+    }
+    const rows=activeOpenChanges();
+    if(changeFilter==="open") return rows;
+    if(changeFilter==="needs_update"||changeFilter==="entered"||changeFilter==="conflict") return rows.filter(c=>c.status===changeFilter);
+    return [];
+  };
+
+  window.renderChanges=function(){
+    priorRenderChanges();
+    const headers=document.querySelectorAll("#changeslist .queue-table th");
+    if(headers.length>=5){
+      headers[2].textContent="RezMagic Current";
+      headers[3].textContent="Requested / Working";
+      headers[4].textContent="Update";
+    }
+  };
+
+  window.markEntered=async function(changeId){
+    const id=String(changeId||"");
+    if(!id.startsWith("room:")) return priorMarkEntered(changeId);
+    const eventId=id.slice(5);
+    const source=roomRezMagicUpdates.find(x=>String(x.id)===eventId);
+    if(!source) return;
+    try{
+      setStatus("Saving room upgrade as entered in RezMagic…","busy");
+      await addRoomQueueEvent(source.entity_id,"synced",{
+        current_category_code:source.new_value?.current_category_code||null,
+        source_event_id:source.id,
+        entered_by:session.user.email,
+        entered_at:new Date().toISOString()
+      });
+      await loadRoomQueue();
+      renderChanges();
+      setStatus("Room upgrade marked entered in RezMagic and archived in Verified History.","ok");
+    }catch(error){
+      setStatus("Could not update room RezMagic item: "+error.message,"warn");
+    }
+  };
+
+  window.saveRequestStatus=async function(rezId,type,status){
+    await priorSaveRequestStatus(rezId,type,status);
+    if(type!=="room") return;
+    try{
+      await loadRoomQueue();
+      const current=latestRoomEvent(rezId);
+      const q=String(current?.new_value?.queue_status||"");
+      if(status==="approved"&&q!=="needs_update"){
+        const record=reservations.find(r=>String(r.rez_id)===String(rezId));
+        await addRoomQueueEvent(rezId,"needs_update",{
+          current_category_code:record?.category_code||null,
+          approved_by:session.user.email,
+          approved_at:new Date().toISOString()
+        });
+        await loadRoomQueue();
+        renderChanges();
+        setStatus("Room upgrade approved and added to RezMagic Updates for manual entry.","ok");
+      }else if(status!=="approved"&&q==="needs_update"){
+        await addRoomQueueEvent(rezId,"cancelled",{
+          cancelled_by:session.user.email,
+          cancelled_at:new Date().toISOString()
+        });
+        await loadRoomQueue();
+        renderChanges();
+      }
+    }catch(error){
+      setStatus("Room request saved, but its RezMagic queue item could not be updated: "+error.message,"warn");
+    }
+  };
+
+  window.loadAll=async function(opts){
+    await priorLoadAll(opts);
+    try{
+      await loadRoomQueue();
+      await backfillApprovedRooms();
+      renderChanges();
+      renderRequestWorkbench();
+    }catch(error){
+      console.error("Room RezMagic queue load failed",error);
+    }
+  };
+
+  const priorRenderRequestWorkbench=window.renderRequestWorkbench;
+  window.renderRequestWorkbench=function(){
+    priorRenderRequestWorkbench();
+    if(requestView==="room"){
+      const info=document.getElementById("workQueueInfo");
+      if(info) info.textContent="Approve a room upgrade here and it automatically moves into RezMagic Updates. After you manually make the change in RezMagic, click Mark Entered there so it is archived in history.";
+    }
+  };
+
+  if(session&&reservations.length){
+    loadRoomQueue().then(backfillApprovedRooms).then(()=>{renderChanges();renderRequestWorkbench();}).catch(console.error);
+  }
+})();
+
+</script>
+<script>
+"use strict";
+(function(){
+  function reservationFor(rezId){
+    return (window.reservations||[]).find(r=>String(r.rez_id)===String(rezId));
+  }
+
+  function firstValue(record,keys){
+    for(const key of keys){
+      const value=record?.[key];
+      if(value!==undefined&&value!==null&&String(value).trim()) return String(value).trim();
+    }
+    return "";
+  }
+
+  function currentRoomType(record){
+    if(!record) return "Not available";
+    const label=firstValue(record,[
+      "room_type","room_type_name","primary_category_name","category_name","primary_category","room_category_name"
+    ]);
+    const code=firstValue(record,["category_code","primary_category_code"]);
+    if(label&&code&&!label.toLowerCase().includes(code.toLowerCase())) return label+" ("+code+")";
+    return label||code||"Not available";
+  }
+
+  function roomRequestItems(record){
+    try{
+      return (typeof requestList==="function"?requestList(record):[])
+        .map(x=>String(x||"").trim())
+        .filter(Boolean)
+        .filter(x=>/room type|room upgrade|suite|king bed|ada|terrace|oceanfront|cabana|tower|room request/i.test(x));
+    }catch(_){return [];}
+  }
+
+  function requestedRoomType(record){
+    if(!record) return "No room request found";
+    const items=roomRequestItems(record);
+    const text=(typeof requestText==="function"?String(requestText(record)||""):"").replace(/\s+/g," ").trim();
+    const combined=(items.join(" · ")+" "+text).trim();
+
+    const specifics=[];
+    const rules=[
+      [/oceanfront atlantic suite/i,"Oceanfront Atlantic Suite"],
+      [/clock(?:\s+king)?\s+tower\s+suite/i,"Clock Tower Suite"],
+      [/king\s+terrace/i,"King Terrace"],
+      [/oceanfront\s+terrace/i,"Oceanfront Terrace"],
+      [/cabana/i,"Cabana Room"],
+      [/king bed|room type change request to king|\bwants? king\b|\bking room\b/i,"King Bed / King Room"],
+      [/room type change request to suite|\bsuite\b/i,"Suite"],
+      [/\bada\b|accessible/i,"ADA / Accessible Room"]
+    ];
+    rules.forEach(([rx,label])=>{if(rx.test(combined)&&!specifics.includes(label)) specifics.push(label);});
+    if(specifics.length) return specifics.join(" / ");
+    if(items.length) return items.join(" · ");
+    return text||"No room request found";
+  }
+
+  function roomRequestDetail(record){
+    const text=(typeof requestText==="function"?String(requestText(record)||""):"").replace(/\s+/g," ").trim();
+    const requested=requestedRoomType(record);
+    if(!text||text===requested||text.length>220) return "";
+    return text;
+  }
+
+  function roomInfoHtml(record,compact=false){
+    const current=currentRoomType(record), requested=requestedRoomType(record), detail=roomRequestDetail(record);
+    if(compact){
+      return '<div class="roomTypeSummary"><div><span>Current room</span><b>'+esc(current)+'</b></div><div><span>Requested</span><b>'+esc(requested)+'</b></div></div>';
+    }
+    return '<div class="roomTypePanel"><div class="roomTypeCol"><span>Current room type</span><b>'+esc(current)+'</b></div><div class="roomTypeArrow">→</div><div class="roomTypeCol"><span>Requested room type</span><b>'+esc(requested)+'</b></div>'+(detail?'<div class="roomTypeDetail"><b>Room request detail:</b> '+esc(detail)+'</div>':'')+'</div>';
+  }
+
+  function enhanceWorkCards(){
+    document.querySelectorAll("#workCards .workCard[data-work-rez]").forEach(card=>{
+      if(card.querySelector(".roomTypeSummary")) return;
+      const record=reservationFor(card.dataset.workRez);
+      if(!record) return;
+      const requestTextEl=card.querySelector(".workCardRequest");
+      if(requestTextEl) requestTextEl.insertAdjacentHTML("afterend",roomInfoHtml(record,true));
+    });
+  }
+
+  function enhanceSelectedReservation(){
+    const record=reservationFor(window.selectedRez||selectedRez);
+    if(!record) return;
+    const host=document.getElementById("resDetail")||document.getElementById("detail");
+    if(!host||host.querySelector(".roomTypePanel")) return;
+    const first=host.firstElementChild;
+    if(first) first.insertAdjacentHTML("afterend",roomInfoHtml(record,false));
+    else host.insertAdjacentHTML("afterbegin",roomInfoHtml(record,false));
+  }
+
+  function enhanceRoomQueue(){
+    document.querySelectorAll("#changeslist .queue-table tbody tr").forEach(row=>{
+      if(row.dataset.roomTypesEnhanced) return;
+      const text=row.textContent||"";
+      const rezMatch=text.match(/#?(\d{6,})/);
+      if(!rezMatch) return;
+      const record=reservationFor(rezMatch[1]);
+      if(!record) return;
+      const cells=row.querySelectorAll("td");
+      if(cells.length>=4){
+        const current=currentRoomType(record), requested=requestedRoomType(record);
+        if(/room/i.test(text)){
+          cells[2].textContent=current;
+          cells[3].textContent=requested;
+          row.dataset.roomTypesEnhanced="1";
+        }
+      }
+    });
+  }
+
+  function enhanceAllRoomInfo(){
+    enhanceWorkCards();
+    enhanceSelectedReservation();
+    enhanceRoomQueue();
+  }
+
+  const priorRenderRequestWorkbench=window.renderRequestWorkbench;
+  if(typeof priorRenderRequestWorkbench==="function"){
+    window.renderRequestWorkbench=function(){
+      priorRenderRequestWorkbench();
+      enhanceWorkCards();
+    };
+  }
+
+  const priorRenderChanges=window.renderChanges;
+  if(typeof priorRenderChanges==="function"){
+    window.renderChanges=function(){
+      priorRenderChanges();
+      enhanceRoomQueue();
+    };
+  }
+
+  const priorRenderAll=window.renderAll;
+  if(typeof priorRenderAll==="function"){
+    window.renderAll=function(){
+      priorRenderAll();
+      enhanceAllRoomInfo();
+    };
+  }
+
+  const style=document.createElement("style");
+  style.textContent=`
+    .roomTypePanel{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:center;margin:8px 0;padding:9px;border:1px solid #cfd9e6;background:#f7faff;border-radius:8px}
+    .roomTypeCol span,.roomTypeSummary span{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;margin-bottom:2px}
+    .roomTypeCol b{display:block;font-size:11px;line-height:1.3;color:var(--navy)}
+    .roomTypeArrow{font-size:17px;color:var(--muted);font-weight:800}
+    .roomTypeDetail{grid-column:1/-1;border-top:1px solid #dfe6ef;padding-top:6px;font-size:9px;line-height:1.35;color:#4f5863}
+    .roomTypeSummary{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px;padding:6px;border-radius:6px;background:#f4f7fb;border:1px solid #dce4ee}
+    .roomTypeSummary>div{min-width:0}.roomTypeSummary b{display:block;font-size:9px;line-height:1.25;color:var(--navy);word-break:break-word}
+  `;
+  document.head.appendChild(style);
+
+  enhanceAllRoomInfo();
+})();
+
+</script>
+<script>
+"use strict";
+(function(){
+  let workSearch="";
+  let seating2025=[];
+
+  function rezRecord(rezId){return (window.reservations||[]).find(r=>String(r.rez_id)===String(rezId));}
+  function val(record,keys){for(const k of keys){const v=record?.[k];if(v!==undefined&&v!==null&&String(v).trim())return String(v).trim();}return "";}
+  function currentRoom(record){return val(record,["room_type","room_type_name","primary_category_name","category_name","primary_category","room_category_name","category_code","primary_category_code"])||"Not available";}
+  function rezDate(record){return val(record,["reservation_date","date_reserved","reserved_at","created_at","rez_date","booking_date"])||"Not available";}
+  function seatUpgradePaid(record){
+    const raw=val(record,["seat_upgrade_paid","upgrade_fee_paid","seat_upgrade_fee_paid","upgrade_paid","seat_upgrade_payment_status"]);
+    if(raw) return /^(1|true|yes|paid|complete|completed)$/i.test(raw)?"Paid":/^(0|false|no|unpaid|not paid|pending)$/i.test(raw)?"Not paid":raw;
+    const text=((typeof requestText==="function"?requestText(record):"")+" "+JSON.stringify(record||{})).toLowerCase();
+    if(/seat upgrade[^\n]{0,60}(paid|payment complete)/i.test(text)) return "Paid";
+    if(/seat upgrade[^\n]{0,60}(unpaid|not paid|payment due)/i.test(text)) return "Not paid";
+    return "Not available";
+  }
+
+  window.activeWorkRows=function(mode){
+    let rows=[];
+    if(mode==="suite") rows=suiteRequestRows();
+    else if(mode==="room") rows=roomRequestRows();
+    else if(mode==="group") rows=groupRequestRows();
+    return rows.filter(r=>latestRequestStatus(workRowRezId(r),mode)!=="resolved");
+  };
+
+  window.workStatusOptions=function(mode,status){
+    const options=mode==="suite"?[["pending","Pending"],["confirmed","Suite Confirmed"],["waitlist","Waitlist"],["not_available","Not Available"]]:mode==="room"?[["pending","Pending"],["approved","Approved"],["waitlist","Waitlist"],["not_available","Not Available"]]:[["pending","Pending"],["working","Working"],["completed","Completed"]];
+    return options.map(([v,l])=>'<option value="'+v+'"'+(status===v?' selected':'')+'>'+l+'</option>').join("");
+  };
+
+  window.resolveWorkRequest=async function(rezId,type){
+    try{
+      setStatus("Resolving request…","busy");
+      await api("audit_log",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({user_id:session.user.id,action:"request_status",entity_type:"reservation",entity_id:String(rezId),new_value:{request_type:type,status:"resolved",email:session.user.email,resolved_at:new Date().toISOString()}})});
+      requestStatuses=await apiAll("audit_log?select=*&action=eq.request_status&order=created_at.asc");
+      const rows=activeWorkRows(type);
+      if(rows.length&&!rows.some(r=>String(workRowRezId(r))===String(selectedRez))){selectedRez=String(workRowRezId(rows[0]));const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;}
+      renderAll();
+      setStatus("Request resolved. The next reservation is ready.","ok");
+    }catch(error){setStatus("Could not resolve request: "+error.message,"warn");}
+  };
+
+  function workMatches(row,mode){
+    if(!workSearch) return true;
+    const rezId=workRowRezId(row);
+    const record=rezRecord(rezId);
+    const names=mode==="group"?String(row.names||""):rezGuests(rezId).map(g=>g.guest_name).join(" ");
+    const hay=[rezId,names,typeof requestText==="function"?requestText(record):"",currentRoom(record),JSON.stringify(record||{})].join(" ").toLowerCase();
+    return hay.includes(workSearch.toLowerCase());
+  }
+
+  window.renderRequestWorkbench=function(){
+    const searchMode=document.getElementById("reservationSearchMode"),queueMode=document.getElementById("workQueueMode"),cardsHost=document.getElementById("workCards"),metricsHost=document.getElementById("workMiniMetrics"),infoHost=document.getElementById("workQueueInfo"),footerHost=document.getElementById("workQueueFooter");
+    if(!searchMode||!queueMode||!cardsHost) return;
+    const suiteActive=activeWorkRows("suite"),roomActive=activeWorkRows("room"),groupActive=activeWorkRows("group");
+    const sb=document.getElementById("suiteWorkBadge"),rb=document.getElementById("roomWorkBadge"),gb=document.getElementById("groupWorkBadge");if(sb)sb.textContent=suiteActive.length;if(rb)rb.textContent=roomActive.length;if(gb)gb.textContent=groupActive.length;
+    document.querySelectorAll("[data-work-mode]").forEach(button=>{button.classList.toggle("active",button.dataset.workMode===requestView);button.onclick=()=>{requestView=button.dataset.workMode;workSearch="";const rows=activeWorkRows(requestView);if(rows.length&&!new Set(rows.map(workRowRezId)).has(String(selectedRez))){selectedRez=String(workRowRezId(rows[0]));const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;}renderAll();};});
+    if(!requestView){searchMode.style.display="block";queueMode.style.display="none";return;}
+    searchMode.style.display="none";queueMode.style.display="block";
+    const labels={suite:"Suite Requests",room:"Room Upgrades",group:"Group Seating"};document.getElementById("workQueueTitle").textContent=labels[requestView];
+    let search=document.getElementById("workQueueSearch");
+    if(!search){search=document.createElement("input");search.id="workQueueSearch";search.className="workQueueSearch";search.placeholder="Search name, reservation #, room or request…";document.querySelector(".workQueueHead")?.insertAdjacentElement("afterend",search);search.addEventListener("input",()=>{workSearch=search.value.trim();renderRequestWorkbench();});}
+    search.value=workSearch;
+    const allRows=activeWorkRows(requestView),rows=allRows.filter(r=>workMatches(r,requestView)),visible=rows.slice(0,5);
+    if(requestView==="suite"){
+      const all=suiteRequestRows();const blueOccupied=assignments.filter(a=>{const row=String(a.seat_id||"").match(/^([A-Z]+)/)?.[1];return row&&BLUE_ROWS.has(row);}).length;const open=Math.max(0,BLUE_CAPACITY-blueOccupied);const committed=all.filter(r=>latestRequestStatus(r.rez_id,"suite")==="confirmed").reduce((sum,r)=>sum+Math.max(0,rezGuestCount(r.rez_id)-blueSeatsForRez(r.rez_id)),0);const sellable=Math.max(0,open-committed);
+      metricsHost.innerHTML='<div class="workMiniMetric sellable"><b>'+sellable+'</b><span>Blue seats available to sell</span></div><div class="workMiniMetric"><b>'+committed+'</b><span>Blue seats committed to confirmed suites</span></div><div class="workMiniMetric"><b>'+open+'</b><span>Physically open blue seats</span></div><div class="workMiniMetric"><b>'+allRows.length+'</b><span>Suite requests still open</span></div>';
+      infoHost.textContent="Changing the dropdown updates the request status but keeps it in this queue. Click Resolve only when you are completely finished with the reservation.";
+    }else if(requestView==="room"){
+      metricsHost.innerHTML='<div class="workMiniMetric"><b>'+allRows.length+'</b><span>Open room upgrades</span></div><div class="workMiniMetric"><b>'+roomRequestRows().length+'</b><span>Total room-upgrade requests</span></div>';infoHost.textContent="Status changes stay in the queue until you click Resolve. Five reservations are shown at a time.";
+    }else{
+      const people=allRows.reduce((s,r)=>s+Number(r.guestCount||0),0);metricsHost.innerHTML='<div class="workMiniMetric"><b>'+allRows.length+'</b><span>Open seating groups</span></div><div class="workMiniMetric"><b>'+people+'</b><span>Guests in open groups</span></div>';infoHost.textContent="Search or work the next five groups. Click Resolve only when the seating request is fully handled.";
+    }
+    cardsHost.innerHTML=visible.length?visible.map((r,index)=>{const rezId=workRowRezId(r),isGroup=requestView==="group",status=latestRequestStatus(rezId,requestView),names=isGroup?r.names:rezGuests(rezId).map(g=>g.guest_name).join(" / "),party=isGroup?r.guestCount:rezGuestCount(rezId),record=rezRecord(rezId),copy=isGroup?(r.memberIds.length+" linked reservations"):(requestText(record)||(requestView==="suite"?"Suite request":"Room upgrade request")),need=requestView==="suite"?Math.max(0,party-blueSeatsForRez(rezId)):0,active=String(selectedRez)===String(rezId)?" active":"",statusClass=String(status||"pending").replace(/[^a-z_]/g,"");return '<div class="workCard'+active+'" data-work-rez="'+esc(rezId)+'"><div class="workCardTop"><div class="workCardRez">'+(index===0&&!workSearch?'WORK NOW · ':'')+'#'+esc(rezId)+'</div><span class="workCardStatus '+esc(statusClass)+'">'+esc(String(status||"pending").replace(/_/g," "))+'</span></div><div class="workCardNames">'+esc(names||"No guest name")+'</div><div class="workCardMeta">'+party+' guest'+(party===1?'':'s')+(isGroup?' · '+r.memberIds.map(id=>'#'+id).join(', '):' · reserved '+esc(formatRequestDate(r)))+'</div><div class="workCardRequest">'+esc(copy)+'</div>'+(requestView==="suite"?'<div class="workCardBlue">Needs '+need+' blue seat'+(need===1?'':'s')+'</div>':'')+'<div class="workCardActions"><select class="workStatusSelect" data-type="'+esc(requestView)+'" data-rez="'+esc(rezId)+'">'+workStatusOptions(requestView,status)+'</select><button class="workOpen" data-open-rez="'+esc(rezId)+'">Open</button><button class="workResolve" data-type="'+esc(requestView)+'" data-rez="'+esc(rezId)+'">Resolve</button></div></div>';}).join(""):'<div class="empty">'+(workSearch?'No matching open requests.':'Nothing pending in this queue.')+'</div>';
+    footerHost.textContent=rows.length>5?'Showing 5 of '+rows.length+' matching open requests. Resolve one and the next automatically appears.':rows.length+' matching open request'+(rows.length===1?'':'s')+'.';
+    document.getElementById("queueBack").onclick=()=>{requestView="";workSearch="";renderAll();};
+    cardsHost.querySelectorAll(".workCard").forEach(card=>card.addEventListener("click",e=>{if(e.target.closest("select,button"))return;selectedRez=card.dataset.workRez;const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;renderAll();}));
+    cardsHost.querySelectorAll(".workOpen").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();selectedRez=b.dataset.openRez;const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;renderAll();}));
+    cardsHost.querySelectorAll(".workStatusSelect").forEach(s=>{s.addEventListener("click",e=>e.stopPropagation());s.addEventListener("change",async e=>{e.stopPropagation();await saveRequestStatus(s.dataset.rez,s.dataset.type,s.value);});});
+    cardsHost.querySelectorAll(".workResolve").forEach(b=>b.addEventListener("click",async e=>{e.stopPropagation();await resolveWorkRequest(b.dataset.rez,b.dataset.type);}));
+  };
+
+  function enhanceReservationInfo(){
+    const record=rezRecord(window.selectedRez||selectedRez);if(!record)return;
+    const host=document.getElementById("resDetail")||document.getElementById("detail");if(!host)return;
+    let panel=host.querySelector(".rezExtraFields");if(!panel){panel=document.createElement("div");panel.className="rezExtraFields";host.insertAdjacentElement("afterbegin",panel);}
+    panel.innerHTML='<div><span>Room Type</span><b>'+esc(currentRoom(record))+'</b></div><div><span>Seat Upgrade Fee</span><b>'+esc(seatUpgradePaid(record))+'</b></div><div><span>Date of Rez</span><b>'+esc(rezDate(record))+'</b></div>';
+    render2025History(host,record);
+  }
+
+  function normalize(s){return String(s||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();}
+  function render2025History(host,record){
+    let panel=host.querySelector(".history2025");if(!panel){panel=document.createElement("div");panel.className="history2025";host.appendChild(panel);}
+    const names=rezGuests(record.rez_id).map(g=>normalize(g.guest_name)).filter(Boolean);
+    const matches=seating2025.filter(x=>names.some(n=>n&&normalize(x.name).includes(n)||n.includes(normalize(x.name))));
+    panel.innerHTML='<div class="history2025Title">2025 Seating History</div>'+(matches.length?matches.map(x=>'<div class="history2025Row"><b>'+esc(x.name||"Guest")+'</b><span>'+esc(x.comment||"No seating comment")+'</span></div>').join(""):'<div class="history2025Empty">No matching 2025 seating comment found.</div>');
+  }
+
+  async function load2025(){
+    try{const rows=await apiAll("audit_log?select=*&action=eq.seating_history_2025&order=created_at.asc");seating2025=rows.map(r=>r.new_value||{});}catch(e){console.error("2025 history load failed",e);}
+  }
+
+  function parseCSV(text){
+    const rows=[];let row=[],cell="",q=false;
+    for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'){if(q&&n==='"'){cell+='"';i++;}else q=!q;}else if(c===','&&!q){row.push(cell);cell="";}else if((c==='\n'||c==='\r')&&!q){if(c==='\r'&&n==='\n')i++;row.push(cell);rows.push(row);row=[];cell="";}else cell+=c;}
+    if(cell||row.length){row.push(cell);rows.push(row);}return rows;
+  }
+  function pick(obj,patterns){for(const k of Object.keys(obj)){if(patterns.some(rx=>rx.test(k)))return String(obj[k]||"").trim();}return "";}
+  async function import2025(file){
+    const matrix=parseCSV(await file.text());if(matrix.length<2)throw new Error("The 2025 CSV has no data rows.");
+    const headers=matrix[0].map(h=>String(h||"").trim());const items=[];
+    matrix.slice(1).forEach(cols=>{const o={};headers.forEach((h,i)=>o[h]=cols[i]||"");const name=pick(o,[/guest.*name/i,/customer.*name/i,/name/i]),comment=pick(o,[/comment/i,/request/i,/note/i,/addon/i,/add.on/i]),rez=pick(o,[/reservation.*number/i,/reservation.*id/i,/rez.*id/i]);if(name&&comment)items.push({name,comment,rez_id:rez,source_file:file.name});});
+    if(!items.length)throw new Error("I could not find guest names plus comments in that CSV.");
+    const payload=items.map(item=>({user_id:session.user.id,action:"seating_history_2025",entity_type:"reservation_history",entity_id:item.rez_id||item.name,new_value:item}));
+    await api("audit_log",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify(payload)});await load2025();renderAll();return items.length;
+  }
+
+  function add2025Import(){
+    const actions=document.querySelector(".actions");if(!actions||document.getElementById("import2025Btn"))return;
+    const btn=document.createElement("button");btn.id="import2025Btn";btn.textContent="Import 2025 Seating";const input=document.createElement("input");input.type="file";input.accept=".csv,text/csv";input.style.display="none";btn.onclick=()=>input.click();input.onchange=async()=>{if(!input.files?.[0])return;try{setStatus("Importing 2025 seating comments…","busy");const count=await import2025(input.files[0]);setStatus(count+" 2025 seating comments imported. They are lookup-only and do not change 2026 reservations.","ok");}catch(e){setStatus("2025 import failed: "+e.message,"warn");}input.value="";};actions.appendChild(btn);actions.appendChild(input);
+  }
+
+  function seatClickOpen(){
+    document.addEventListener("click",e=>{const seat=e.target.closest("[data-seat-id],.seat");if(!seat)return;const seatId=seat.dataset.seatId||seat.getAttribute("data-seat")||seat.id; if(!seatId)return;const a=(window.assignments||[]).find(x=>String(x.seat_id)===String(seatId));if(!a)return;const guest=(window.guests||[]).find(g=>String(g.id)===String(a.guest_id));const rezId=guest?.rez_id||a.rez_id;if(!rezId)return;selectedRez=String(rezId);selectedGuest=guest?.id||a.guest_id||null;renderAll();},true);
+  }
+
+  function addUndoButton(){
+    const actions=document.querySelector(".actions");if(!actions||document.getElementById("undoTopBtn"))return;
+    const btn=document.createElement("button");btn.id="undoTopBtn";btn.textContent="Undo";btn.title="Undo the most recent reversible seating action";btn.onclick=()=>{if(typeof window.undoLastAction==="function")window.undoLastAction();else setStatus("Undo is ready for seating moves once the action history is available on this screen.","warn");};actions.insertBefore(btn,actions.firstChild);
+  }
+
+  const priorRenderAll=window.renderAll;
+  window.renderAll=function(){priorRenderAll();addUndoButton();add2025Import();enhanceReservationInfo();};
+  const priorLoadAll=window.loadAll;
+  window.loadAll=async function(opts){await priorLoadAll(opts);await load2025();renderAll();};
+
+  const style=document.createElement("style");style.textContent=`
+    .workQueueSearch{width:100%;box-sizing:border-box;margin:0 0 8px;padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:10px;background:#fff}
+    .workResolve{background:#173d70!important;color:#fff!important;border-color:#173d70!important}.workCardActions{flex-wrap:wrap}.workCardActions .workResolve{flex:0 0 auto}
+    .rezExtraFields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:7px 0}.rezExtraFields>div{border:1px solid var(--line);background:#f8fafc;border-radius:7px;padding:7px}.rezExtraFields span{display:block;font-size:8px;color:var(--muted);text-transform:uppercase;font-weight:800;letter-spacing:.04em}.rezExtraFields b{display:block;margin-top:2px;font-size:10px;color:var(--navy);line-height:1.25}
+    .history2025{margin-top:8px;border:1px solid #d9cda8;background:#fffdf5;border-radius:8px;padding:8px}.history2025Title{font-size:10px;font-weight:900;color:#6c5720;margin-bottom:5px}.history2025Row{padding:5px 0;border-top:1px solid #eee5c8}.history2025Row:first-of-type{border-top:0}.history2025Row b,.history2025Row span{display:block;font-size:9px;line-height:1.3}.history2025Row span{color:#5d5d58;margin-top:2px}.history2025Empty{font-size:9px;color:#827a64}
+  `;document.head.appendChild(style);
+  seatClickOpen();load2025().then(()=>{addUndoButton();add2025Import();enhanceReservationInfo();renderRequestWorkbench();}).catch(console.error);
+})();
+</script>
+<script>
+"use strict";
+(function(){
+  function norm(s){return String(s||"").replace(/\s+/g," ").trim().toLowerCase();}
+  function nearestBlock(el){
+    let n=el;
+    for(let i=0;i<5&&n;i++,n=n.parentElement){
+      const t=norm(n.textContent);
+      if(t.length>20&&t.length<6000&&n.children.length>0) return n;
+    }
+    return el?.parentElement||el;
+  }
+  function byHeading(re){
+    const all=[...document.querySelectorAll("h1,h2,h3,h4,h5,h6,.kicker,.section-title,.title,strong,b,div,span")];
+    const hit=all.find(el=>re.test(norm(el.textContent)) && norm(el.textContent).length<80);
+    return hit?nearestBlock(hit):null;
+  }
+  function searchBlock(){
+    const inputs=[...document.querySelectorAll('input[type="search"],input[type="text"]')];
+    const input=inputs.find(i=>/search|guest|reservation|name/i.test(String(i.placeholder||"")));
+    if(!input) return null;
+    let n=input;
+    for(let i=0;i<4&&n.parentElement;i++){
+      if(n.parentElement.children.length<=6 && norm(n.parentElement.textContent).length<800) n=n.parentElement;
+      else break;
+    }
+    return n;
+  }
+  function detailBlock(){
+    return document.getElementById("resDetail")||document.getElementById("detail")||byHeading(/reservation details?/i);
+  }
+  function legendBlock(){
+    return document.querySelector(".legend,#legend,[class*='legend'],[id*='legend']")||byHeading(/^legend$/i);
+  }
+  function upcomingBlock(){
+    return document.querySelector("#upcomingReservations,.upcomingReservations,[class*='upcoming'][class*='reservation'],[id*='upcoming'][id*='reservation']")||byHeading(/upcoming reservations?|next reservations?/i);
+  }
+  function ensureRightRail(layout){
+    let rail=document.getElementById("rightReservationRail");
+    if(!rail){
+      rail=document.createElement("aside");
+      rail.id="rightReservationRail";
+      rail.innerHTML='<div class="rightRailTitle">Upcoming Reservations</div><div id="rightUpcomingHost"></div><div class="rightRailLegendTitle">Legend</div><div id="rightLegendHost"></div>';
+      layout.appendChild(rail);
+    }
+    return rail;
+  }
+  function arrange(){
+    const sidebar=document.querySelector(".sidebar");
+    if(!sidebar||!sidebar.parentElement) return;
+    const layout=sidebar.parentElement;
+    layout.classList.add("fsjwThreeColumnLayout");
+    const search=searchBlock();
+    const detail=detailBlock();
+    if(search&&detail&&search!==detail&&search.parentElement===detail.parentElement){
+      detail.parentElement.insertBefore(search,detail);
+    }else if(search&&detail&&sidebar.contains(search)&&sidebar.contains(detail)){
+      sidebar.insertBefore(search,detail);
+    }
+    const rail=ensureRightRail(layout);
+    const upHost=rail.querySelector("#rightUpcomingHost");
+    const legHost=rail.querySelector("#rightLegendHost");
+    const upcoming=upcomingBlock();
+    const legend=legendBlock();
+    if(upcoming&&!rail.contains(upcoming)&&upcoming!==sidebar&&upcoming!==layout){
+      upHost.replaceChildren(upcoming);
+    }
+    if(legend&&!rail.contains(legend)&&legend!==sidebar&&legend!==layout){
+      legHost.replaceChildren(legend);
+    }
+    const searchInput=search?.querySelector?.('input[type="search"],input[type="text"]')||(search?.matches?.('input')?search:null);
+    if(searchInput && !searchInput.dataset.leftSearchLocked){
+      searchInput.dataset.leftSearchLocked="1";
+      searchInput.setAttribute("aria-label","Search reservations");
+    }
+  }
+  const style=document.createElement("style");
+  style.textContent=`
+    .fsjwThreeColumnLayout{display:grid!important;grid-template-columns:minmax(250px,310px) minmax(640px,1fr) minmax(235px,285px)!important;gap:12px!important;align-items:start!important}
+    .fsjwThreeColumnLayout>.sidebar{grid-column:1!important;min-width:0!important}
+    #rightReservationRail{grid-column:3!important;min-width:0;background:#fff;border:1px solid var(--line,#dfe4ea);border-radius:10px;padding:10px;box-sizing:border-box;position:sticky;top:8px;max-height:calc(100vh - 16px);overflow:auto}
+    .rightRailTitle,.rightRailLegendTitle{font-size:11px;font-weight:900;color:var(--navy,#2B4692);text-transform:uppercase;letter-spacing:.04em;margin:1px 0 8px}
+    .rightRailLegendTitle{margin-top:14px;padding-top:10px;border-top:1px solid var(--line,#dfe4ea)}
+    #rightUpcomingHost>*{width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}
+    #rightLegendHost>*{width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}
+    @media(max-width:1100px){.fsjwThreeColumnLayout{grid-template-columns:minmax(240px,300px) minmax(560px,1fr)!important}.fsjwThreeColumnLayout>#rightReservationRail{grid-column:1/-1!important;position:static!important;display:grid;grid-template-columns:2fr 1fr;gap:12px;max-height:none}.rightRailLegendTitle{margin-top:0;padding-top:0;border-top:0}}
+  `;
+  document.head.appendChild(style);
+  arrange();
+  const observer=new MutationObserver(()=>{clearTimeout(window.__fsjwLayoutTimer);window.__fsjwLayoutTimer=setTimeout(arrange,40);});
+  observer.observe(document.body,{childList:true,subtree:true});
+})();
+
+</script>
+<script>
+"use strict";
+(function(){
+  function rezRecord(rezId){return (window.reservations||[]).find(r=>String(r.rez_id)===String(rezId));}
+  function value(record,keys){for(const k of keys){const v=record?.[k];if(v!==undefined&&v!==null&&String(v).trim()) return String(v).trim();}return "";}
+  function fmtDate(raw){if(!raw)return "Not available";const d=new Date(raw);return Number.isNaN(d.getTime())?String(raw):d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});}
+  function roomType(record){return value(record,["room_type","room_type_name","primary_category_name","category_name","primary_category","room_category_name","category_code","primary_category_code"])||"Not available";}
+  function seatUpgradePaid(record){
+    const raw=value(record,["seat_upgrade_paid","upgrade_fee_paid","seat_upgrade_fee_paid","upgrade_paid","seat_upgrade_payment_status"]);
+    if(raw) return /^(1|true|yes|paid|complete|completed)$/i.test(raw)?"Paid":/^(0|false|no|unpaid|not paid|pending)$/i.test(raw)?"Not paid":raw;
+    const text=((typeof requestText==="function"?requestText(record):"")+" "+JSON.stringify(record||{})).toLowerCase();
+    if(/seat upgrade[^\n]{0,60}(paid|payment complete)/i.test(text)) return "Paid";
+    if(/seat upgrade[^\n]{0,60}(unpaid|not paid|payment due)/i.test(text)) return "Not paid";
+    return "Not available";
+  }
+  function reservationDate(record){return fmtDate(value(record,["reservation_date","date_reserved","reserved_at","created_at","rez_date","booking_date"]));}
+  function checkInRaw(record){return value(record,["check_in","checkin","arrival_date","arrival","start_date","stay_start","check_in_date"]);}
+  function checkOutRaw(record){return value(record,["check_out","checkout","departure_date","departure","end_date","stay_end","check_out_date"]);}
+  function checkIn(record){return fmtDate(checkInRaw(record));}
+  function checkOut(record){return fmtDate(checkOutRaw(record));}
+  function lengthOfStay(record){
+    const raw=value(record,["length_of_stay","nights","number_of_nights","stay_length"]);
+    if(raw) return /night/i.test(raw)?raw:raw+" night"+(String(raw)==="1"?"":"s");
+    const a=new Date(checkInRaw(record)),b=new Date(checkOutRaw(record));
+    if(!Number.isNaN(a.getTime())&&!Number.isNaN(b.getTime())){const n=Math.round((b-a)/86400000);if(n>=0)return n+" night"+(n===1?"":"s");}
+    return "Not available";
+  }
+  function field(label,val){return '<div class="rezPrimaryField"><span>'+esc(label)+'</span><b>'+esc(val)+'</b></div>';}
+  function findLeftSearch(){
+    const wrap=document.getElementById("reservationSearchMode");
+    if(!wrap)return null;
+    const input=wrap.querySelector('input[type="search"],input[placeholder*="search" i],input[type="text"]');
+    if(!input)return wrap;
+    let n=input;
+    for(let i=0;i<3&&n.parentElement&&wrap.contains(n.parentElement);i++){
+      if(n.parentElement.children.length<=6)n=n.parentElement;else break;
+    }
+    return n;
+  }
+  function renderPrimaryDetails(){
+    if(window.requestView)return;
+    const record=rezRecord(window.selectedRez||selectedRez);if(!record)return;
+    const searchWrap=document.getElementById("reservationSearchMode");if(!searchWrap)return;
+    let panel=document.getElementById("reservationDetailsPrimary");
+    if(!panel){panel=document.createElement("section");panel.id="reservationDetailsPrimary";panel.className="reservationDetailsPrimary";}
+    panel.innerHTML='<div class="rezPrimaryHeading">Reservation Details</div><div class="rezPrimaryGrid">'
+      +field("Room Type",roomType(record))
+      +field("Seat Upgrade Fee",seatUpgradePaid(record))
+      +field("Date of Reservation",reservationDate(record))
+      +field("Check-In",checkIn(record))
+      +field("Check-Out",checkOut(record))
+      +field("Length of Stay",lengthOfStay(record))
+      +'</div>';
+    const search=findLeftSearch();
+    if(search&&search!==searchWrap) search.insertAdjacentElement("afterend",panel); else searchWrap.insertAdjacentElement("afterbegin",panel);
+    searchWrap.querySelectorAll(".rezExtraFields").forEach(el=>el.remove());
+  }
+  const priorRenderAll=window.renderAll;
+  if(typeof priorRenderAll==="function") window.renderAll=function(){priorRenderAll();renderPrimaryDetails();};
+  const style=document.createElement("style");
+  style.textContent=`
+    #reservationDetailsPrimary{margin:8px 0 10px;padding:9px;border:1px solid var(--line,#dfe4ea);border-radius:8px;background:#fff}
+    .rezPrimaryHeading{font-size:10px;font-weight:900;color:var(--navy,#2B4692);text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px}
+    .rezPrimaryGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    .rezPrimaryField{min-width:0;padding:6px;background:#f8fafc;border:1px solid #e3e8ef;border-radius:6px}
+    .rezPrimaryField span{display:block;font-size:8px;color:var(--muted,#6b7280);text-transform:uppercase;letter-spacing:.03em;font-weight:800;margin-bottom:2px}
+    .rezPrimaryField b{display:block;font-size:10px;color:var(--navy,#2B4692);line-height:1.25;word-break:break-word}
+  `;
+  document.head.appendChild(style);
+  renderPrimaryDetails();
+})();
+</script>
 </body>
 </html>
