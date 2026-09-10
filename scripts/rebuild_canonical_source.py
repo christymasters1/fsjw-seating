@@ -66,7 +66,7 @@ new_target = '''      const target = byRez.get(rezId);
       }
       const upgradeCode = String(source.AddOnCategoryName || "").trim();
       const upgradeProduct = String(source.AddOnProductName || "").trim();
-      if (upgradeCode === "SUP" || /^Concert Seating Upgrade$/i.test(upgradeProduct)) {
+      if (upgradeCode === "SUP") {
         target.seat_upgrade_status = "YES on reservation";
       }
 
