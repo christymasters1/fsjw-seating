@@ -1,10 +1,11 @@
-# One-time source restoration for FSJW seating manager
 name: Rebuild canonical seating source
 
 on:
   push:
     paths:
+      - 'scripts/rebuild_canonical_source.py'
       - '.github/workflows/rebuild-canonical-source.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -18,18 +19,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Rebuild source from live payload
+      - name: Rebuild standalone canonical source
         run: python scripts/rebuild_canonical_source.py
 
-      - name: Verify occupied-seat source behavior
+      - name: Verify canonical source
         run: |
           python - <<'PY'
           from pathlib import Path
           text = Path('index.html').read_text()
-          assert 'CANONICAL SOURCE: occupied seats open their reservation' in text
+          assert 'standalone source; no runtime patches; reservation details imported natively' in text
+          assert 'patch/' not in text
           assert text.count('if (occupant) {') >= 2
-          assert 'patch/v15.js' not in text
           assert text.count('moveSelectedGuest(code);') == 2
+          assert 'created_on:v.created_on || null' in text
+          assert 'start_date:v.start_date || null' in text
+          assert 'end_date:v.end_date || null' in text
+          assert 'category_code:v.category_code || null' in text
+          assert 'night_count:v.night_count' in text
+          assert 'seat_upgrade_status:v.seat_upgrade_status || null' in text
           print('Canonical source verification passed.')
           PY
 
@@ -42,5 +49,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html
-          git commit -m 'Restore canonical source and fix occupied seat navigation'
+          git commit -m 'Consolidate canonical source and native reservation detail import'
           git push
