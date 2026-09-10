@@ -37,7 +37,6 @@
 
   function renderRightFields(){
     document.getElementById("reservationDetailsPrimary")?.remove();
-    if(window.requestView) return;
     const record=rezRecord(window.selectedRez||selectedRez);
     const host=rightDetailHost();
     if(!host) return;
