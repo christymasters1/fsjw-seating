@@ -67,7 +67,7 @@ new_target = '''      const target = byRez.get(rezId);
       const upgradeCode = String(source.AddOnCategoryName || "").trim();
       const upgradeProduct = String(source.AddOnProductName || "").trim();
       if (upgradeCode === "SUP" || /^Concert Seating Upgrade$/i.test(upgradeProduct)) {
-        target.seat_upgrade_status = "Upgrade on reservation";
+        target.seat_upgrade_status = "Yes — on reservation";
       }
 
       const guestName = String(source.PartyName || "").trim();'''
@@ -176,6 +176,7 @@ assert 'patch/' not in html, 'Canonical index still references a patch asset.'
 assert 'created_on:v.created_on || null' in html
 assert 'night_count:v.night_count' in html
 assert 'seat_upgrade_status:v.seat_upgrade_status || null' in html
+assert 'Yes — on reservation' in html
 assert 'Viewing Guest' in html
 assert 'Room Upgrades' in html
 
