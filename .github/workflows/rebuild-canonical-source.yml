@@ -1,0 +1,45 @@
+name: Rebuild canonical seating source
+
+on:
+  push:
+    paths:
+      - '.github/workflows/rebuild-canonical-source.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Rebuild source from live payload
+        run: python scripts/rebuild_canonical_source.py
+
+      - name: Verify occupied-seat source behavior
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('index.html').read_text()
+          assert 'CANONICAL SOURCE: occupied seats open their reservation' in text
+          assert text.count('if (occupant) {') >= 2
+          assert 'patch/v15.js' not in text
+          assert text.count('moveSelectedGuest(code);') == 2
+          print('Canonical source verification passed.')
+          PY
+
+      - name: Commit canonical source
+        run: |
+          if git diff --quiet -- index.html; then
+            echo 'No source change needed.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Restore canonical source and fix occupied seat navigation'
+          git push
