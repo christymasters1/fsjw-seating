@@ -34,7 +34,7 @@
       throw new Error('The app package did not pass its integrity check.');
     }
     appHtml=appHtml.replace('</head>','<link rel="stylesheet" href="patch/v6.css?v=6"></head>');
-    appHtml=appHtml.replace('</body>','<script src="patch/v6.js?v=6"><\/script><script src="patch/v7.js?v=7"><\/script><script src="patch/v8.js?v=8"><\/script><script src="patch/v9.js?v=9"><\/script><script src="patch/v10.js?v=10"><\/script><script src="patch/v11.js?v=11"><\/script><script src="patch/v12.js?v=13"><\/script><script src="patch/v13.js?v=13"><\/script><script src="patch/v15.js?v=15"><\/script></body>');
+    appHtml=appHtml.replace('</body>','<script src="patch/v6.js?v=6"><\/script><script src="patch/v7.js?v=7"><\/script><script src="patch/v8.js?v=8"><\/script><script src="patch/v9.js?v=9"><\/script><script src="patch/v10.js?v=10"><\/script><script src="patch/v11.js?v=11"><\/script><script src="patch/v12.js?v=13"><\/script><script src="patch/v13.js?v=13"><\/script><script src="patch/v15.js?v=16"><\/script></body>');
     document.open();
     document.write(appHtml);
     document.close();
