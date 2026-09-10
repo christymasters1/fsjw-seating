@@ -1,7 +1,10 @@
 "use strict";
 (function(){
+  function liveReservations(){try{return typeof reservations!=="undefined"?reservations:[];}catch(_){return [];}}
+  function liveAssignments(){try{return typeof assignments!=="undefined"?assignments:[];}catch(_){return [];}}
+  function liveGuests(){try{return typeof guests!=="undefined"?guests:[];}catch(_){return [];}}
   function norm(s){return String(s||"").replace(/\s+/g," ").trim();}
-  function rezRecord(rezId){return (window.reservations||[]).find(r=>String(r.rez_id)===String(rezId));}
+  function rezRecord(rezId){return liveReservations().find(r=>String(r.rez_id)===String(rezId));}
   function value(record,keys){for(const k of keys){const v=record?.[k];if(v!==undefined&&v!==null&&String(v).trim())return String(v).trim();}return "";}
   function fmtDate(raw){if(!raw)return "Not available";const d=new Date(raw);return Number.isNaN(d.getTime())?String(raw):d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});}
   function roomType(record){return value(record,["room_type","room_type_name","primary_category_name","category_name","primary_category","room_category_name","category_code","primary_category_code"])||"Not available";}
@@ -25,21 +28,22 @@
   }
   function field(label,val){return '<div class="rightRezField"><span>'+esc(label)+'</span><b>'+esc(val)+'</b></div>';}
 
+  function reservationHeading(){
+    return [...document.querySelectorAll("h1,h2,h3,h4,h5,h6,.kicker,strong,b,div")]
+      .find(el=>/^reservation details$/i.test(norm(el.textContent)));
+  }
   function rightDetailHost(){
-    const direct=document.getElementById("resDetail")||document.getElementById("detail");
-    if(direct) return direct;
-    const candidates=[...document.querySelectorAll("aside,section,div")];
-    return candidates.find(el=>{
-      const t=norm(el.firstElementChild?.textContent||el.textContent).toUpperCase();
-      return t.startsWith("RESERVATION DETAILS") && el.textContent.length<12000;
-    })||null;
+    const heading=reservationHeading();
+    if(heading&&heading.parentElement)return heading.parentElement;
+    return document.getElementById("resDetail")||document.getElementById("detail")||null;
   }
 
   function renderRightFields(){
     document.getElementById("reservationDetailsPrimary")?.remove();
-    const record=rezRecord(window.selectedRez||selectedRez);
+    const rezId=(typeof selectedRez!=="undefined"?selectedRez:null)||window.selectedRez;
+    const record=rezRecord(rezId);
     const host=rightDetailHost();
-    if(!host) return;
+    if(!host)return;
     let panel=host.querySelector("#rightReservationCoreFields");
     if(!record){if(panel)panel.remove();return;}
     if(!panel){panel=document.createElement("div");panel.id="rightReservationCoreFields";}
@@ -51,20 +55,21 @@
       +field("Check-Out",fmtDate(checkOutRaw(record)))
       +field("Length of Stay",lengthOfStay(record))
       +'</div>';
-    const heading=[...host.querySelectorAll("h1,h2,h3,h4,h5,h6,.kicker,strong,b,div")].find(el=>/^reservation details$/i.test(norm(el.textContent)));
-    if(heading){
-      let anchor=heading;
-      while(anchor.parentElement===host&&anchor.nextElementSibling&&anchor.nextElementSibling.textContent.trim()==="") anchor=anchor.nextElementSibling;
-      anchor.insertAdjacentElement("afterend",panel);
-    }else host.insertAdjacentElement("afterbegin",panel);
+    const heading=reservationHeading();
+    if(heading&&heading.parentElement===host) heading.insertAdjacentElement("afterend",panel);
+    else host.insertAdjacentElement("afterbegin",panel);
   }
 
-  function forceReservationOpen(rezId){
+  function forceReservationOpen(rezId,guestId){
     const record=rezRecord(rezId);if(!record)return;
-    window.selectedRez=selectedRez=String(rezId);
-    const gs=typeof rezGuests==="function"?rezGuests(rezId):[];
-    window.selectedGuest=selectedGuest=gs.find(g=>!g.seat_id)?.id||gs[0]?.id||null;
-    if(typeof renderAll==="function") renderAll();
+    try{selectedRez=String(rezId);}catch(_){window.selectedRez=String(rezId);}
+    window.selectedRez=String(rezId);
+    let gs=[];try{gs=typeof rezGuests==="function"?rezGuests(rezId):[];}catch(_){gs=[];}
+    const chosen=guestId?gs.find(g=>String(g.id)===String(guestId)):null;
+    const guest=chosen||gs[0]||null;
+    try{selectedGuest=guest?.id||null;}catch(_){window.selectedGuest=guest?.id||null;}
+    window.selectedGuest=guest?.id||null;
+    try{if(typeof renderAll==="function")renderAll();}catch(e){console.error(e);}
     setTimeout(renderRightFields,0);
   }
 
@@ -72,15 +77,51 @@
     const sidebar=document.querySelector(".sidebar");if(!sidebar||!sidebar.contains(target))return null;
     let n=target;
     for(let i=0;i<6&&n&&sidebar.contains(n);i++,n=n.parentElement){
-      const text=norm(n.textContent);
-      const m=text.match(/#(\d{5,})/);
+      const text=norm(n.textContent);const m=text.match(/#(\d{5,})/);
       if(m&&rezRecord(m[1]))return m[1];
     }
     return null;
   }
 
+  function seatIdFromElement(target){
+    let n=target;
+    for(let i=0;i<5&&n;i++,n=n.parentElement){
+      const d=n.dataset||{};
+      const vals=[d.seatId,d.seat,d.id,d.seatid,n.getAttribute?.("data-seat-id"),n.getAttribute?.("data-seat")].filter(Boolean);
+      for(const v of vals){if(/^[A-Z]{1,3}\d{1,3}$/i.test(String(v).trim()))return String(v).trim().toUpperCase();}
+      const id=String(n.id||"");const m=id.match(/(?:seat[-_:]?)?([A-Z]{1,3}\d{1,3})$/i);if(m)return m[1].toUpperCase();
+    }
+    return null;
+  }
+
+  function assignmentForSeat(seatId){return liveAssignments().find(a=>String(a.seat_id||"").toUpperCase()===String(seatId).toUpperCase());}
+  function rezForAssignment(a){
+    if(!a)return null;
+    if(a.rez_id&&rezRecord(a.rez_id))return {rezId:a.rez_id,guestId:a.guest_id||null};
+    const gid=a.guest_id;
+    if(gid){
+      const g=liveGuests().find(x=>String(x.id)===String(gid));
+      if(g?.rez_id&&rezRecord(g.rez_id))return {rezId:g.rez_id,guestId:gid};
+      for(const r of liveReservations()){
+        try{const gs=typeof rezGuests==="function"?rezGuests(r.rez_id):[];if(gs.some(x=>String(x.id)===String(gid)))return {rezId:r.rez_id,guestId:gid};}catch(_){}
+      }
+    }
+    return null;
+  }
+
+  function handleSeatClick(e){
+    if((typeof requestView!=="undefined"&&requestView)||window.requestView)return false;
+    const seatId=seatIdFromElement(e.target);if(!seatId)return false;
+    const assignment=assignmentForSeat(seatId);if(!assignment)return false;
+    const found=rezForAssignment(assignment);if(!found)return false;
+    e.preventDefault();e.stopPropagation();
+    forceReservationOpen(found.rezId,found.guestId);
+    return true;
+  }
+
   document.addEventListener("click",function(e){
     if(e.target.closest("button,select,input,textarea,a"))return;
+    if(handleSeatClick(e))return;
     const rezId=findReservationIdFromClick(e.target);
     if(rezId){e.preventDefault();forceReservationOpen(rezId);}
   },true);
@@ -98,7 +139,6 @@
     .rightRezField{padding:7px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;min-width:0}
     .rightRezField span{display:block;font-size:8px;line-height:1.2;text-transform:uppercase;letter-spacing:.04em;font-weight:800;color:var(--muted,#6b7280);margin-bottom:2px}
     .rightRezField b{display:block;font-size:10px;line-height:1.3;color:var(--navy,#2B4692);word-break:break-word}
-    .sidebar [class*="reservation"],.sidebar [class*="rez"]{cursor:pointer}
   `;
   document.head.appendChild(style);
   setTimeout(renderRightFields,0);
