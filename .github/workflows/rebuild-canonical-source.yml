@@ -19,19 +19,64 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Correct seating upgrade source logic
+      - name: Ensure static reservation search source logic
         run: |
           python - <<'PY'
           from pathlib import Path
           path = Path('scripts/rebuild_canonical_source.py')
           text = path.read_text()
-          old = 'if (upgradeCode === "SUP" || /^Concert Seating Upgrade$/i.test(upgradeProduct)) {'
-          new = 'if (upgradeCode === "SUP") {'
-          if old in text:
-              text = text.replace(old, new, 1)
+          marker = '# No patch assets may be referenced by the canonical app.'
+          sentinel = 'id="reservationSearchStatic"'
+          if sentinel not in text:
+              addition = r'''
+# 5) Persistent reservation search is part of the left-side application shell.
+#    It remains visible while reservation results scroll and survives internal view changes.
+static_search_css = """
+.staticReservationSearch{flex:0 0 auto;position:sticky;top:0;z-index:20;background:#fff;padding:2px 0 4px}
+.staticReservationSearch .search{margin:0;width:100%}
+"""
+html = html.replace('</style>', static_search_css + '\n</style>', 1)
+
+static_search_js = r"""
+(function(){
+  function applyReservationSearch(input, sidebar){
+    const q = String(input.value || '').trim().toLowerCase();
+    sidebar.querySelectorAll('.resitem').forEach(function(card){
+      const text = String(card.textContent || '').toLowerCase();
+      card.style.display = (!q || text.includes(q)) ? '' : 'none';
+    });
+  }
+
+  function ensureReservationSearch(){
+    document.querySelectorAll('.sidebar').forEach(function(sidebar){
+      let wrap = sidebar.querySelector('.staticReservationSearch');
+      if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.className = 'staticReservationSearch';
+        wrap.innerHTML = '<input id="reservationSearchStatic" class="search" type="search" placeholder="Search guest or reservation #" autocomplete="off" aria-label="Search reservations">';
+        sidebar.insertBefore(wrap, sidebar.firstChild);
+        const input = wrap.querySelector('#reservationSearchStatic');
+        input.addEventListener('input', function(){ applyReservationSearch(input, sidebar); });
+      }
+      const input = wrap.querySelector('#reservationSearchStatic');
+      if (input) applyReservationSearch(input, sidebar);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', ensureReservationSearch);
+  const observer = new MutationObserver(function(){
+    ensureReservationSearch();
+  });
+  observer.observe(document.documentElement, {childList:true, subtree:true});
+})();
+"""
+html = html.replace('</body>', '<script>\n' + static_search_js + '\n</script>\n</body>', 1)
+
+'''
+              if marker not in text:
+                  raise SystemExit('Canonical generator insertion marker not found')
+              text = text.replace(marker, addition + marker, 1)
               path.write_text(text)
-          elif new not in text:
-              raise SystemExit('Expected seating upgrade condition not found')
           PY
 
       - name: Rebuild standalone canonical source
@@ -55,10 +100,14 @@ jobs:
           assert 'seat_upgrade_status:v.seat_upgrade_status || null' in text
           assert 'if (upgradeCode === "SUP") {' in generator
           assert '|| /^Concert Seating Upgrade$/i.test(upgradeProduct)' not in generator
+          assert 'id="reservationSearchStatic"' in generator
+          assert 'id="reservationSearchStatic"' in text
+          assert 'Search guest or reservation #' in text
+          assert '.staticReservationSearch' in text
           print('Canonical source verification passed.')
           PY
 
-      - name: Commit corrected source and canonical app
+      - name: Commit canonical source and app
         run: |
           if git diff --quiet -- scripts/rebuild_canonical_source.py index.html; then
             echo 'No source change needed.'
@@ -67,5 +116,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add scripts/rebuild_canonical_source.py index.html
-          git commit -m 'Fix SUP-only seating upgrade detection'
+          git commit -m 'Restore persistent reservation search'
           git push
