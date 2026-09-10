@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - 'scripts/rebuild_canonical_source.py'
+      - 'scripts/integrate_historical_seating.py'
+      - 'src/historical_seating.js'
       - 'patch/v11.js'
       - '.github/workflows/rebuild-canonical-source.yml'
   workflow_dispatch:
@@ -23,12 +25,16 @@ jobs:
       - name: Rebuild standalone canonical source
         run: python scripts/rebuild_canonical_source.py
 
+      - name: Integrate native historical seating
+        run: python scripts/integrate_historical_seating.py
+
       - name: Verify canonical source
         run: |
           python - <<'PY'
           from pathlib import Path
           text = Path('index.html').read_text()
           generator = Path('scripts/rebuild_canonical_source.py').read_text()
+          history = Path('src/historical_seating.js').read_text()
           assert 'standalone source; no runtime patches; reservation details imported natively' in text
           assert 'patch/' not in text
           assert text.count('if (occupant) {') >= 2
@@ -42,6 +48,15 @@ jobs:
           assert 'if (upgradeCode === "SUP") {' in generator
           assert 'persistentReservationSearch' in text
           assert 'Search guest or reservation #' in text
+          assert 'data-canonical-source="historical-seating"' in text
+          assert 'historical_guest_records' in text
+          assert 'historical_links' in text
+          assert 'Show 2025 Seating' in text
+          assert '2025 Seating' in text
+          assert '2025 Comments' in text
+          assert '2025 Linked Guests' in text
+          assert 'ASSIGNED_SEATING_PRODUCT' in history
+          assert 'addon==="SUP"' in history
           print('Canonical source verification passed.')
           PY
 
@@ -54,5 +69,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html
-          git commit -m 'Restore persistent reservation search'
+          git commit -m 'Add native 2025 historical seating'
           git push
