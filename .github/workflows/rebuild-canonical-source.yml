@@ -19,6 +19,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Correct seating upgrade source logic
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/rebuild_canonical_source.py')
+          text = path.read_text()
+          old = 'if (upgradeCode === "SUP" || /^Concert Seating Upgrade$/i.test(upgradeProduct)) {'
+          new = 'if (upgradeCode === "SUP") {'
+          if old in text:
+              text = text.replace(old, new, 1)
+              path.write_text(text)
+          elif new not in text:
+              raise SystemExit('Expected seating upgrade condition not found')
+          PY
+
       - name: Rebuild standalone canonical source
         run: python scripts/rebuild_canonical_source.py
 
@@ -27,6 +42,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           text = Path('index.html').read_text()
+          generator = Path('scripts/rebuild_canonical_source.py').read_text()
           assert 'standalone source; no runtime patches; reservation details imported natively' in text
           assert 'patch/' not in text
           assert text.count('if (occupant) {') >= 2
@@ -37,17 +53,19 @@ jobs:
           assert 'category_code:v.category_code || null' in text
           assert 'night_count:v.night_count' in text
           assert 'seat_upgrade_status:v.seat_upgrade_status || null' in text
+          assert 'if (upgradeCode === "SUP") {' in generator
+          assert '|| /^Concert Seating Upgrade$/i.test(upgradeProduct)' not in generator
           print('Canonical source verification passed.')
           PY
 
-      - name: Commit canonical source
+      - name: Commit corrected source and canonical app
         run: |
-          if git diff --quiet -- index.html; then
+          if git diff --quiet -- scripts/rebuild_canonical_source.py index.html; then
             echo 'No source change needed.'
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html
-          git commit -m 'Consolidate canonical source and native reservation detail import'
+          git add scripts/rebuild_canonical_source.py index.html
+          git commit -m 'Fix SUP-only seating upgrade detection'
           git push
