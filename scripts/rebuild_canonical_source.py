@@ -139,6 +139,18 @@ if old_host not in html:
     raise RuntimeError("Reservation details render block was not found.")
 html = html.replace(old_host, new_host, 1)
 
+# The historical section gets a permanent source-level mount in the reservation details.
+# It is recreated by every native renderDetails() call, so the historical module cannot be
+# wiped out by the app's lexical renderAll() function.
+notes_anchor = '''    '<div class="rule"></div>' +
+    '<h3>CHRISTY + CATHY NOTES</h3>' +'''
+notes_with_history_mount = '''    '<div id="history2025Mount"></div>' +
+    '<div class="rule"></div>' +
+    '<h3>CHRISTY + CATHY NOTES</h3>' +'''
+if notes_anchor not in html:
+    raise RuntimeError("Christy + Cathy notes anchor was not found for the 2025 history mount.")
+html = html.replace(notes_anchor, notes_with_history_mount, 1)
+
 source_css = '''
 #rightReservationCoreFields{margin:7px 0 11px;padding-bottom:10px;border-bottom:1px solid var(--line)}
 .rightRezGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0 11px}
@@ -179,6 +191,7 @@ assert 'seat_upgrade_status:v.seat_upgrade_status || null' in html
 assert 'YES on reservation' in html
 assert 'Viewing Guest' in html
 assert 'Room Upgrades' in html
+assert 'id="history2025Mount"' in html
 
 (ROOT / 'index.html').write_text(html, encoding='utf-8')
-print('Rebuilt standalone canonical index.html with native reservation detail import and no runtime patches.')
+print('Rebuilt standalone canonical index.html with native reservation detail import and permanent 2025 history mount.')
