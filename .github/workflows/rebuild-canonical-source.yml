@@ -1,3 +1,4 @@
+# One-time source restoration for FSJW seating manager
 name: Rebuild canonical seating source
 
 on:
