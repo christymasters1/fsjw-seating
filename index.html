@@ -3033,6 +3033,50 @@ setInterval(() => {
   document.head.appendChild(style);
   renderPrimaryDetails();
 })();
+
+(function(){
+  let searchQuery="";
+
+  function filterReservations(sidebar){
+    const q=searchQuery.trim().toLowerCase();
+    sidebar.querySelectorAll('.resitem').forEach(function(card){
+      const haystack=String(card.textContent||'').toLowerCase();
+      card.style.display=(!q||haystack.includes(q))?'':'none';
+    });
+  }
+
+  function ensureStaticSearch(){
+    document.querySelectorAll('.sidebar').forEach(function(sidebar){
+      let shell=sidebar.querySelector('.persistentReservationSearch');
+      if(!shell){
+        shell=document.createElement('div');
+        shell.className='persistentReservationSearch';
+        shell.innerHTML='<input class="search persistentReservationSearchInput" type="search" placeholder="Search guest or reservation #" autocomplete="off" aria-label="Search guest or reservation number">';
+        sidebar.insertBefore(shell,sidebar.firstChild);
+        const input=shell.querySelector('.persistentReservationSearchInput');
+        input.value=searchQuery;
+        input.addEventListener('input',function(){searchQuery=input.value;filterReservations(sidebar);});
+      }
+      const input=shell.querySelector('.persistentReservationSearchInput');
+      if(input&&input.value!==searchQuery)input.value=searchQuery;
+      filterReservations(sidebar);
+    });
+  }
+
+  const style=document.createElement('style');
+  style.textContent=`
+    .persistentReservationSearch{flex:0 0 auto;position:sticky;top:0;z-index:50;background:#fff;padding:0 0 5px}
+    .persistentReservationSearch .search{margin:0;width:100%;background:#fff}
+  `;
+  document.head.appendChild(style);
+
+  document.addEventListener('DOMContentLoaded',ensureStaticSearch);
+  const previousRenderAll=window.renderAll;
+  if(typeof previousRenderAll==='function'){
+    window.renderAll=function(){previousRenderAll();ensureStaticSearch();};
+  }
+  setTimeout(ensureStaticSearch,0);
+})();
 </script>
 </body>
 </html>
