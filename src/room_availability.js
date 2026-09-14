@@ -132,7 +132,17 @@
   function load(){
     try{
       const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||"null");
-      if(saved&&Array.isArray(saved.items))inventory=saved;
+      if(saved&&Array.isArray(saved.items)){
+        saved.items=saved.items.map(item=>{
+          if(item.categoryName||item.categoryCode||!item.category)return item;
+          const legacy=String(item.category).trim();
+          return /^[A-Z0-9-]{2,12}$/i.test(legacy)
+            ? {...item,categoryCode:legacy}
+            : {...item,categoryName:legacy};
+        });
+        inventory=saved;
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(inventory));
+      }
     }catch(error){localStorage.removeItem(STORAGE_KEY);}
     expose();
   }
@@ -150,7 +160,7 @@
     meta.textContent=total+" available · "+(date&&!Number.isNaN(date.getTime())?date.toLocaleString():"Latest upload");
     host.innerHTML=inventory.items.map(item=>
       '<div class="roomAvailabilityRow">'+
-        '<div><b>'+escText(item.categoryName||item.categoryCode)+'</b>'+
+        '<div><b>'+escText(item.categoryName||item.categoryCode||item.category||"Room category")+'</b>'+
         (item.categoryCode&&item.categoryName?'<span>'+escText(item.categoryCode)+'</span>':'')+
         (item.occupancy?'<span>Occupancy '+escText(item.occupancy)+'</span>':'')+'</div>'+
         '<strong>'+escText(item.available)+'</strong>'+
