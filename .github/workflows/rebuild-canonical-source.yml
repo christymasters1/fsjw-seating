@@ -6,6 +6,7 @@ on:
       - 'scripts/rebuild_canonical_source.py'
       - 'scripts/integrate_historical_seating.py'
       - 'src/historical_seating.js'
+      - 'src/room_availability.js'
       - 'patch/v11.js'
       - '.github/workflows/rebuild-canonical-source.yml'
   workflow_dispatch:
@@ -56,6 +57,8 @@ jobs:
           assert '2025 Comments' in text
           assert '2025 Linked Guests' in text
           assert 'ASSIGNED_SEATING_PRODUCT' in history
+          assert 'fsjw_room_availability_v1' in text
+          assert 'Import Room Availability CSV' in text
           assert 'addon==="SUP"' in history
           print('Canonical source verification passed.')
           PY

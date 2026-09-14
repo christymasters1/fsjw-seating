@@ -182,6 +182,10 @@ for version in range(6, 12):
     js = (ROOT / 'patch' / f'v{version}.js').read_text(encoding='utf-8')
     html = html.replace('</body>', '<script>\n' + js + '\n</script>\n</body>', 1)
 
+# Native room-availability inventory module.
+availability_js = (ROOT / 'src' / 'room_availability.js').read_text(encoding='utf-8')
+html = html.replace('</body>', '<script data-canonical-source="room-availability">\n' + availability_js + '\n</script>\n</body>', 1)
+
 # Button copy cleanup requested by Christy.
 html = html.replace('Work Group Seating', 'Group Seating')
 html = html.replace('Work Room Upgrades', 'Room Upgrades')
@@ -209,6 +213,8 @@ assert 'Category Code' in html
 assert 'Occupancy #' in html
 assert 'Room Upgrades' in html
 assert 'id="history2025Mount"' in html
+assert 'fsjw_room_availability_v1' in html
+assert 'Import Room Availability CSV' in html
 
 (ROOT / 'index.html').write_text(html, encoding='utf-8')
 print('Rebuilt standalone canonical index.html with category name, category code, occupancy, reservation details, and permanent 2025 history mount.')
