@@ -74,7 +74,7 @@ jobs:
 
       - name: Commit canonical app
         run: |
-          if git diff --quiet -- index.html src/index.html; then
+          if [ -z "$(git status --porcelain -- index.html src/index.html)" ]; then
             echo 'No canonical app change needed.'
             exit 0
           fi
