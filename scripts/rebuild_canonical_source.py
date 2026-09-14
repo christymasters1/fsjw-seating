@@ -82,9 +82,6 @@ if old_target not in html:
     raise RuntimeError("Reservation import target block was not found.")
 html = html.replace(old_target, new_target, 1)
 
-# Insert the enriched reservation fields into the base v5 upsert payload using the
-# stable requests anchor. The compressed base source does not already contain the
-# newer reservation-detail fields, so matching an enriched payload here is brittle.
 payload_anchor = '''      requests:[...v.requests],
 '''
 payload_fields = '''      requests:[...v.requests],
@@ -121,6 +118,13 @@ function selectedGuestDisplayName(gs) {
   const guest = gs.find(g => String(g.id) === String(selectedGuest)) || gs[0];
   return guest?.guest_name || "Reservation";
 }
+function roomInventoryDetails(record) {
+  try {
+    return window.FSJWRoomAvailability?.lookupByCode?.(record?.category_code || "") || null;
+  } catch (error) {
+    return null;
+  }
+}
 '''
 marker = 'function renderDetails() {'
 if marker not in html:
@@ -132,14 +136,16 @@ old_host = '''  host.innerHTML =
 new_host = '''  const detailLength = record?.night_count !== null && record?.night_count !== undefined && record?.night_count !== ""
     ? String(record.night_count) + " night" + (String(record.night_count) === "1" ? "" : "s")
     : "Not available";
+  const roomInventory = roomInventoryDetails(record);
+  const detailCategoryName = record?.category_name || roomInventory?.categoryName || "Not available";
   const detailOccupancy = record?.occupancy_number !== null && record?.occupancy_number !== undefined && record?.occupancy_number !== ""
     ? String(record.occupancy_number)
-    : (gs.length ? String(gs.length) : "Not available");
+    : (roomInventory?.occupancy ? String(roomInventory.occupancy) : (gs.length ? String(gs.length) : "Not available"));
 
   host.innerHTML =
     '<div class="rightRezGuestName"><span>Viewing Guest</span><b>' + esc(selectedGuestDisplayName(gs)) + '</b></div>' +
     '<div class="rightRezGrid">' +
-      reservationDetailField("Category Name", record?.category_name || "Not available") +
+      reservationDetailField("Category Name", detailCategoryName) +
       reservationDetailField("Category Code", record?.category_code || "Not available") +
       reservationDetailField("Occupancy #", detailOccupancy) +
       reservationDetailField("Seat Upgrade Fee", record?.seat_upgrade_status || "Not available") +
@@ -153,9 +159,6 @@ if old_host not in html:
     raise RuntimeError("Reservation details render block was not found.")
 html = html.replace(old_host, new_host, 1)
 
-# The historical section gets a permanent source-level mount in the reservation details.
-# It is recreated by every native renderDetails() call, so the historical module cannot be
-# wiped out by the app's lexical renderAll() function.
 notes_anchor = '''    '<div class="rule"></div>' +
     '<h3>CHRISTY + CATHY NOTES</h3>' +'''
 notes_with_history_mount = '''    '<div id="history2025Mount"></div>' +
@@ -178,23 +181,19 @@ source_css = '''
 html = html.replace('</style>', source_css + '\n</style>', 1)
 
 # 4) Keep current approved workflow functionality, but compile it into index.html.
-#    Runtime patch files are no longer referenced by the deployed app.
 css_extra = (ROOT / 'patch' / 'v6.css').read_text(encoding='utf-8')
 html = html.replace('</style>', '\n' + css_extra + '\n</style>', 1)
 for version in range(6, 12):
     js = (ROOT / 'patch' / f'v{version}.js').read_text(encoding='utf-8')
     html = html.replace('</body>', '<script>\n' + js + '\n</script>\n</body>', 1)
 
-# Native room-availability inventory module.
 availability_js = (ROOT / 'src' / 'room_availability.js').read_text(encoding='utf-8')
 html = html.replace('</body>', '<script data-canonical-source="room-availability">\n' + availability_js + '\n</script>\n</body>', 1)
 
-# Button copy cleanup requested by Christy.
 html = html.replace('Work Group Seating', 'Group Seating')
 html = html.replace('Work Room Upgrades', 'Room Upgrades')
 html = html.replace('Room Upgrade Requests', 'Room Upgrades')
 
-# No patch assets may be referenced by the canonical app.
 import re
 html = re.sub(r'\s*<link[^>]+href="patch/[^"]+"[^>]*>', '', html)
 html = re.sub(r'\s*<script[^>]+src="patch/[^"]+"[^>]*></script>', '', html)
@@ -210,6 +209,8 @@ assert 'occupancy_number:v.occupancy_number ?? (v.guests?.size || null)' in html
 assert 'night_count:v.night_count' in html
 assert 'seat_upgrade_status:v.seat_upgrade_status || null' in html
 assert 'source.ProductName' in html
+assert 'roomInventoryDetails' in html
+assert 'detailCategoryName' in html
 assert 'detailOccupancy' in html
 assert 'YES on reservation' in html
 assert 'Viewing Guest' in html
@@ -219,7 +220,8 @@ assert 'Occupancy #' in html
 assert 'Room Upgrades' in html
 assert 'id="history2025Mount"' in html
 assert 'fsjw_room_availability_v1' in html
+assert 'lookupByCode' in html
 assert 'Import Room Availability CSV' in html
 
 (ROOT / 'index.html').write_text(html, encoding='utf-8')
-print('Rebuilt standalone canonical index.html with category name, category code, occupancy, reservation details, and permanent 2025 history mount.')
+print('Rebuilt standalone canonical index.html with category-name lookup from room inventory and reservation details.')
