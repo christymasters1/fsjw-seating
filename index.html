@@ -2366,12 +2366,18 @@ setInterval(() => {
 
   window.renderRequestWorkbench=function(){
     const searchMode=document.getElementById("reservationSearchMode"),queueMode=document.getElementById("workQueueMode"),cardsHost=document.getElementById("workCards"),metricsHost=document.getElementById("workMiniMetrics"),infoHost=document.getElementById("workQueueInfo"),footerHost=document.getElementById("workQueueFooter");
-    if(!searchMode||!queueMode||!cardsHost) return;
+    if(!queueMode||!cardsHost) return;
+    const rightRail=document.getElementById("rightReservationRail");
+    if(searchMode) searchMode.style.display="block";
+    if(rightRail){
+      rightRail.classList.toggle("workQueueOpen",!!requestView);
+      if(requestView&&queueMode.parentElement!==rightRail) rightRail.insertBefore(queueMode,rightRail.firstChild);
+    }
     const suiteActive=activeWorkRows("suite"),roomActive=activeWorkRows("room"),groupActive=activeWorkRows("group");
     document.getElementById("suiteWorkBadge").textContent=suiteActive.length;document.getElementById("roomWorkBadge").textContent=roomActive.length;document.getElementById("groupWorkBadge").textContent=groupActive.length;
     document.querySelectorAll("[data-work-mode]").forEach(button=>{button.classList.toggle("active",button.dataset.workMode===requestView);button.onclick=()=>{requestView=button.dataset.workMode;const rows=activeWorkRows(requestView);if(rows.length&&!new Set(rows.map(workRowRezId)).has(String(selectedRez))){selectedRez=String(workRowRezId(rows[0]));const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;}renderAll();};});
-    if(!requestView){searchMode.style.display="block";queueMode.style.display="none";return;}
-    searchMode.style.display="none";queueMode.style.display="block";
+    if(!requestView){if(searchMode)searchMode.style.display="block";queueMode.style.display="none";if(rightRail)rightRail.classList.remove("workQueueOpen");return;}
+    if(searchMode)searchMode.style.display="block";queueMode.style.display="block";
     const labels={suite:"Suite Upgrade Queue",room:"Room Upgrade Queue",group:"Group Seating Queue"};document.getElementById("workQueueTitle").textContent=labels[requestView];
     const rows=activeWorkRows(requestView),visible=rows.slice(0,3);
     if(requestView==="suite"){
@@ -2800,12 +2806,18 @@ setInterval(() => {
 
   window.renderRequestWorkbench=function(){
     const searchMode=document.getElementById("reservationSearchMode"),queueMode=document.getElementById("workQueueMode"),cardsHost=document.getElementById("workCards"),metricsHost=document.getElementById("workMiniMetrics"),infoHost=document.getElementById("workQueueInfo"),footerHost=document.getElementById("workQueueFooter");
-    if(!searchMode||!queueMode||!cardsHost) return;
+    if(!queueMode||!cardsHost) return;
+    const rightRail=document.getElementById("rightReservationRail");
+    if(searchMode) searchMode.style.display="block";
+    if(rightRail){
+      rightRail.classList.toggle("workQueueOpen",!!requestView);
+      if(requestView&&queueMode.parentElement!==rightRail) rightRail.insertBefore(queueMode,rightRail.firstChild);
+    }
     const suiteActive=activeWorkRows("suite"),roomActive=activeWorkRows("room"),groupActive=activeWorkRows("group");
     const sb=document.getElementById("suiteWorkBadge"),rb=document.getElementById("roomWorkBadge"),gb=document.getElementById("groupWorkBadge");if(sb)sb.textContent=suiteActive.length;if(rb)rb.textContent=roomActive.length;if(gb)gb.textContent=groupActive.length;
     document.querySelectorAll("[data-work-mode]").forEach(button=>{button.classList.toggle("active",button.dataset.workMode===requestView);button.onclick=()=>{requestView=button.dataset.workMode;workSearch="";const rows=activeWorkRows(requestView);if(rows.length&&!new Set(rows.map(workRowRezId)).has(String(selectedRez))){selectedRez=String(workRowRezId(rows[0]));const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;}renderAll();};});
-    if(!requestView){searchMode.style.display="block";queueMode.style.display="none";return;}
-    searchMode.style.display="none";queueMode.style.display="block";
+    if(!requestView){if(searchMode)searchMode.style.display="block";queueMode.style.display="none";if(rightRail)rightRail.classList.remove("workQueueOpen");return;}
+    if(searchMode)searchMode.style.display="block";queueMode.style.display="block";
     const labels={suite:"Suite Upgrade Queue",room:"Room Upgrade Queue",group:"Group Seating Queue"};document.getElementById("workQueueTitle").textContent=labels[requestView];
     let search=document.getElementById("workQueueSearch");
     if(!search){search=document.createElement("input");search.id="workQueueSearch";search.className="workQueueSearch";search.placeholder="Search name, reservation #, room or request…";document.querySelector(".workQueueHead")?.insertAdjacentElement("afterend",search);search.addEventListener("input",()=>{workSearch=search.value.trim();renderRequestWorkbench();});}
@@ -2884,6 +2896,11 @@ setInterval(() => {
   window.loadAll=async function(opts){await priorLoadAll(opts);await load2025();renderAll();};
 
   const style=document.createElement("style");style.textContent=`
+    #rightReservationRail.workQueueOpen{width:100%;max-height:930px;overflow:auto}
+    #rightReservationRail.workQueueOpen>:not(#workQueueMode){display:none!important}
+    #rightReservationRail #workQueueMode{width:100%;padding:10px;background:#fff;border-radius:8px}
+    #rightReservationRail .workCards{gap:9px}
+    #rightReservationRail .workCard{padding:10px}
     .workQueueSearch{width:100%;box-sizing:border-box;margin:0 0 8px;padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:10px;background:#fff}
     .workResolve{background:#173d70!important;color:#fff!important;border-color:#173d70!important}.workCardActions{flex-wrap:wrap}.workCardActions .workResolve{flex:0 0 auto}
     .rezExtraFields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:7px 0}.rezExtraFields>div{border:1px solid var(--line);background:#f8fafc;border-radius:7px;padding:7px}.rezExtraFields span{display:block;font-size:8px;color:var(--muted);text-transform:uppercase;font-weight:800;letter-spacing:.04em}.rezExtraFields b{display:block;margin-top:2px;font-size:10px;color:var(--navy);line-height:1.25}
