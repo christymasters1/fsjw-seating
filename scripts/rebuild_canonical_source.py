@@ -82,17 +82,12 @@ if old_target not in html:
     raise RuntimeError("Reservation import target block was not found.")
 html = html.replace(old_target, new_target, 1)
 
-old_payload = '''      requests:[...v.requests],
-      created_on:v.created_on || null,
-      start_date:v.start_date || null,
-      end_date:v.end_date || null,
-      category_code:v.category_code || null,
-      night_count:v.night_count,
-      seat_upgrade_status:v.seat_upgrade_status || null,
-      last_seen_import:batchId,
-      status:"active",
-      updated_at:now'''
-new_payload = '''      requests:[...v.requests],
+# Insert the enriched reservation fields into the base v5 upsert payload using the
+# stable requests anchor. The compressed base source does not already contain the
+# newer reservation-detail fields, so matching an enriched payload here is brittle.
+payload_anchor = '''      requests:[...v.requests],
+'''
+payload_fields = '''      requests:[...v.requests],
       created_on:v.created_on || null,
       start_date:v.start_date || null,
       end_date:v.end_date || null,
@@ -101,12 +96,11 @@ new_payload = '''      requests:[...v.requests],
       occupancy_number:v.occupancy_number,
       night_count:v.night_count,
       seat_upgrade_status:v.seat_upgrade_status || null,
-      last_seen_import:batchId,
-      status:"active",
-      updated_at:now'''
-if old_payload not in html:
-    raise RuntimeError("Reservation upsert payload was not found.")
-html = html.replace(old_payload, new_payload, 1)
+'''
+payload_count = html.count(payload_anchor)
+if payload_count != 1:
+    raise RuntimeError(f"Expected exactly one reservation upsert requests anchor, found {payload_count}.")
+html = html.replace(payload_anchor, payload_fields, 1)
 
 html = html.replace(
     '<b>Upload whitelist:</b> Rez number, guest name, seat, sanitized comments/requests. Raw CSV, email, phone, address, balance/payment, and unrelated RezMagic fields are not stored.',
