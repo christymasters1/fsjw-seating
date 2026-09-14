@@ -1161,7 +1161,9 @@ function renderDetails() {
   host.innerHTML =
     '<div class="rightRezGuestName"><span>Viewing Guest</span><b>' + esc(selectedGuestDisplayName(gs)) + '</b></div>' +
     '<div class="rightRezGrid">' +
-      reservationDetailField("Room Type", record?.category_code || "Not available") +
+      reservationDetailField("Category Name", record?.category_name || "Not available") +
+      reservationDetailField("Category Code", record?.category_code || "Not available") +
+      reservationDetailField("Occupancy #", record?.occupancy_number !== null && record?.occupancy_number !== undefined ? String(record.occupancy_number) : "Not available") +
       reservationDetailField("Seat Upgrade Fee", record?.seat_upgrade_status || "Not available") +
       reservationDetailField("Date of Reservation", formatReservationDetailDate(record?.created_on)) +
       reservationDetailField("Check-In", formatReservationDetailDate(record?.start_date)) +
@@ -1639,7 +1641,9 @@ async function preflightCSV(file) {
           created_on:"",
           start_date:"",
           end_date:"",
+          category_name:"",
           category_code:"",
+          occupancy_number:null,
           night_count:null,
           seat_upgrade_status:""
         });
@@ -1648,7 +1652,12 @@ async function preflightCSV(file) {
       target.created_on = target.created_on || String(source.CreatedOn || "").trim();
       target.start_date = target.start_date || String(source.AdjStartDate || "").trim();
       target.end_date = target.end_date || String(source.AdjEndDate || "").trim();
+      target.category_name = target.category_name || String(source.PrimaryCategoryName || source.CategoryName || source.PrimaryCategory || source.Category || "").trim();
       target.category_code = target.category_code || String(source.PrimaryCategoryCode || "").trim();
+      if (target.occupancy_number === null) {
+        const occupancy = Number(String(source.Occupancy || source.OccupancyNumber || source.OccupancyNo || source.OccupancyCount || "").trim());
+        target.occupancy_number = Number.isFinite(occupancy) && occupancy > 0 ? occupancy : null;
+      }
       if (target.night_count === null) {
         const nights = Number(String(source.NightCount || "").trim());
         target.night_count = Number.isFinite(nights) ? nights : null;
@@ -1748,7 +1757,7 @@ function showPrivacyPreflight() {
         ).join("<br>") +
         '</div>'
       : '<div class="privacy-ok">Privacy preflight passed.</div>') +
-    '<div class="small" style="margin-top:9px"><b>Upload whitelist:</b> Rez number, guest name, seat, sanitized comments/requests, room type, reservation date, check-in, check-out, length of stay, and seat-upgrade presence. Raw CSV, email, phone, address, balance/payment, and unrelated RezMagic fields are not stored.</div>';
+    '<div class="small" style="margin-top:9px"><b>Upload whitelist:</b> Rez number, guest name, seat, sanitized comments/requests, category name, category code, occupancy number, reservation date, check-in, check-out, length of stay, and seat-upgrade presence. Raw CSV, email, phone, address, balance/payment, and unrelated RezMagic fields are not stored.</div>';
 
   $("privacyModal").style.display = "flex";
 }
@@ -1859,7 +1868,9 @@ async function executeImport() {
       created_on:v.created_on || null,
       start_date:v.start_date || null,
       end_date:v.end_date || null,
+      category_name:v.category_name || null,
       category_code:v.category_code || null,
+      occupancy_number:v.occupancy_number,
       night_count:v.night_count,
       seat_upgrade_status:v.seat_upgrade_status || null,
       last_seen_import:batchId,
