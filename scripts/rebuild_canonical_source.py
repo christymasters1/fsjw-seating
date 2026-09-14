@@ -27,7 +27,7 @@ if count != 2:
     raise RuntimeError(f"Expected exactly 2 base seat click handlers, found {count}.")
 html = html.replace(old_handler, new_handler)
 
-# 2) Reservation detail fields are part of the primary RezMagic import model.
+# 2) Reservation Details fields are part of the primary RezMagic import model.
 old_init = '''        byRez.set(rezId, {
           rez_id:rezId,
           reservation_comments:"",
@@ -44,7 +44,9 @@ new_init = '''        byRez.set(rezId, {
           created_on:"",
           start_date:"",
           end_date:"",
+          category_name:"",
           category_code:"",
+          occupancy_number:null,
           night_count:null,
           seat_upgrade_status:""
         });'''
@@ -59,7 +61,12 @@ new_target = '''      const target = byRez.get(rezId);
       target.created_on = target.created_on || String(source.CreatedOn || "").trim();
       target.start_date = target.start_date || String(source.AdjStartDate || "").trim();
       target.end_date = target.end_date || String(source.AdjEndDate || "").trim();
+      target.category_name = target.category_name || String(source.PrimaryCategoryName || source.CategoryName || source.PrimaryCategory || source.Category || "").trim();
       target.category_code = target.category_code || String(source.PrimaryCategoryCode || "").trim();
+      if (target.occupancy_number === null) {
+        const occupancy = Number(String(source.Occupancy || source.OccupancyNumber || source.OccupancyNo || source.OccupancyCount || "").trim());
+        target.occupancy_number = Number.isFinite(occupancy) && occupancy > 0 ? occupancy : null;
+      }
       if (target.night_count === null) {
         const nights = Number(String(source.NightCount || "").trim());
         target.night_count = Number.isFinite(nights) ? nights : null;
@@ -76,6 +83,12 @@ if old_target not in html:
 html = html.replace(old_target, new_target, 1)
 
 old_payload = '''      requests:[...v.requests],
+      created_on:v.created_on || null,
+      start_date:v.start_date || null,
+      end_date:v.end_date || null,
+      category_code:v.category_code || null,
+      night_count:v.night_count,
+      seat_upgrade_status:v.seat_upgrade_status || null,
       last_seen_import:batchId,
       status:"active",
       updated_at:now'''
@@ -83,7 +96,9 @@ new_payload = '''      requests:[...v.requests],
       created_on:v.created_on || null,
       start_date:v.start_date || null,
       end_date:v.end_date || null,
+      category_name:v.category_name || null,
       category_code:v.category_code || null,
+      occupancy_number:v.occupancy_number,
       night_count:v.night_count,
       seat_upgrade_status:v.seat_upgrade_status || null,
       last_seen_import:batchId,
@@ -95,7 +110,7 @@ html = html.replace(old_payload, new_payload, 1)
 
 html = html.replace(
     '<b>Upload whitelist:</b> Rez number, guest name, seat, sanitized comments/requests. Raw CSV, email, phone, address, balance/payment, and unrelated RezMagic fields are not stored.',
-    '<b>Upload whitelist:</b> Rez number, guest name, seat, sanitized comments/requests, room type, reservation date, check-in, check-out, length of stay, and seat-upgrade presence. Raw CSV, email, phone, address, balance/payment, and unrelated RezMagic fields are not stored.'
+    '<b>Upload whitelist:</b> Rez number, guest name, seat, sanitized comments/requests, category name, category code, occupancy number, reservation date, check-in, check-out, length of stay, and seat-upgrade presence. Raw CSV, email, phone, address, balance/payment, and unrelated RezMagic fields are not stored.'
 )
 
 # 3) Reservation Details renders directly from the canonical reservation record.
@@ -127,7 +142,9 @@ new_host = '''  const detailLength = record?.night_count !== null && record?.nig
   host.innerHTML =
     '<div class="rightRezGuestName"><span>Viewing Guest</span><b>' + esc(selectedGuestDisplayName(gs)) + '</b></div>' +
     '<div class="rightRezGrid">' +
-      reservationDetailField("Room Type", record?.category_code || "Not available") +
+      reservationDetailField("Category Name", record?.category_name || "Not available") +
+      reservationDetailField("Category Code", record?.category_code || "Not available") +
+      reservationDetailField("Occupancy #", record?.occupancy_number !== null && record?.occupancy_number !== undefined ? String(record.occupancy_number) : "Not available") +
       reservationDetailField("Seat Upgrade Fee", record?.seat_upgrade_status || "Not available") +
       reservationDetailField("Date of Reservation", formatReservationDetailDate(record?.created_on)) +
       reservationDetailField("Check-In", formatReservationDetailDate(record?.start_date)) +
@@ -186,12 +203,18 @@ html = html.replace('<!doctype html>\n', '<!doctype html>\n' + marker_text, 1)
 
 assert 'patch/' not in html, 'Canonical index still references a patch asset.'
 assert 'created_on:v.created_on || null' in html
+assert 'category_name:v.category_name || null' in html
+assert 'category_code:v.category_code || null' in html
+assert 'occupancy_number:v.occupancy_number' in html
 assert 'night_count:v.night_count' in html
 assert 'seat_upgrade_status:v.seat_upgrade_status || null' in html
 assert 'YES on reservation' in html
 assert 'Viewing Guest' in html
+assert 'Category Name' in html
+assert 'Category Code' in html
+assert 'Occupancy #' in html
 assert 'Room Upgrades' in html
 assert 'id="history2025Mount"' in html
 
 (ROOT / 'index.html').write_text(html, encoding='utf-8')
-print('Rebuilt standalone canonical index.html with native reservation detail import and permanent 2025 history mount.')
+print('Rebuilt standalone canonical index.html with category name, category code, occupancy, reservation details, and permanent 2025 history mount.')
