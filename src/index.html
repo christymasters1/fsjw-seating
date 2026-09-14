@@ -2879,7 +2879,7 @@ setInterval(() => {
   }
 
   const priorRenderAll=window.renderAll;
-  window.renderAll=function(){priorRenderAll();addUndoButton();add2025Import();enhanceReservationInfo();};
+  window.renderAll=function(){priorRenderAll();addUndoButton();add2025Import();enhanceReservationInfo();window.renderRequestWorkbench();};
   const priorLoadAll=window.loadAll;
   window.loadAll=async function(opts){await priorLoadAll(opts);await load2025();renderAll();};
 
