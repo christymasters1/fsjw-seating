@@ -819,7 +819,7 @@ async function saveRequestStatus(rezId, type, status) {
 function suiteRequestRows() {
   return reservations
     .filter(isSuiteRequest)
-    .sort((a,b) => requestDate(a) - requestDate(b) || String(a.rez_id).localeCompare(String(b.rez_id)));
+    .sort((a,b) => String(a.rez_id).localeCompare(String(b.rez_id), undefined, {numeric:true, sensitivity:"base"}));
 }
 
 function roomRequestRows() {
@@ -2814,9 +2814,9 @@ setInterval(() => {
     if(requestView==="suite"){
       const all=suiteRequestRows();const blueOccupied=assignments.filter(a=>{const row=String(a.seat_id||"").match(/^([A-Z]+)/)?.[1];return row&&BLUE_ROWS.has(row);}).length;const open=Math.max(0,BLUE_CAPACITY-blueOccupied);const committed=all.filter(r=>latestRequestStatus(r.rez_id,"suite")==="confirmed").reduce((sum,r)=>sum+Math.max(0,rezGuestCount(r.rez_id)-blueSeatsForRez(r.rez_id)),0);const sellable=Math.max(0,open-committed);
       metricsHost.innerHTML='<div class="workMiniMetric sellable"><b>'+sellable+'</b><span>Blue seats available to sell</span></div><div class="workMiniMetric"><b>'+committed+'</b><span>Blue seats committed to confirmed suites</span></div><div class="workMiniMetric"><b>'+open+'</b><span>Physically open blue seats</span></div><div class="workMiniMetric"><b>'+allRows.length+'</b><span>Suite requests still open</span></div>';
-      infoHost.textContent="Oldest reservation first. Use the status while you work. When the guest has been moved to a suite and your action is finished, click Mark Complete. They leave this active queue and the next guest moves to Work Now.";
+      infoHost.textContent="Lowest reservation number first. Use the status while you work. When the guest has been moved to a suite and your action is finished, click Mark Complete. They leave this active queue and the next guest moves to Work Now.";
     }else if(requestView==="room"){
-      metricsHost.innerHTML='<div class="workMiniMetric"><b>'+allRows.length+'</b><span>Open room upgrades</span></div><div class="workMiniMetric"><b>'+roomRequestRows().length+'</b><span>Total room-upgrade requests</span></div>';infoHost.textContent="Oldest reservation first. Status changes stay in the active queue until you click Mark Complete. Then the next guest moves forward.";
+      metricsHost.innerHTML='<div class="workMiniMetric"><b>'+allRows.length+'</b><span>Open room upgrades</span></div><div class="workMiniMetric"><b>'+roomRequestRows().length+'</b><span>Total room-upgrade requests</span></div>';infoHost.textContent="Lowest reservation number first. Status changes stay in the active queue until you click Mark Complete. Then the next guest moves forward.";
     }else{
       const people=allRows.reduce((s,r)=>s+Number(r.guestCount||0),0);metricsHost.innerHTML='<div class="workMiniMetric"><b>'+allRows.length+'</b><span>Open seating groups</span></div><div class="workMiniMetric"><b>'+people+'</b><span>Guests in open groups</span></div>';infoHost.textContent="Search or work the next five groups. Click Mark Complete only when the seating request is fully handled.";
     }
