@@ -44,19 +44,36 @@
   function importRows(text,fileName){
     const matrix=parseMatrix(text);
     if(matrix.length<2)throw new Error("The availability CSV has no data rows.");
-    const headers=matrix.shift().map(h=>String(h).trim());
+
+    // RezMagic exports may place a report title and filters above the true headings.
+    // Scan for the most likely header row instead of assuming it is row one.
+    let headerRowIndex=-1;
+    let bestScore=-1;
+    const scanLimit=Math.min(matrix.length,30);
+    for(let rowIndex=0;rowIndex<scanLimit;rowIndex++){
+      const cells=matrix[rowIndex].map(cleanHeader);
+      let score=0;
+      if(cells.some(v=>/(category|room type|accommodation|unit type|product)/.test(v)))score+=4;
+      if(cells.some(v=>/(occupancy|guest capacity|sleeps)/.test(v)))score+=3;
+      if(cells.some(v=>/(available|availability|inventory|remaining|quantity|qty)/.test(v)))score+=3;
+      if(cells.filter(Boolean).length>=2)score+=1;
+      if(score>bestScore){bestScore=score;headerRowIndex=rowIndex;}
+    }
+    if(headerRowIndex<0||bestScore<4)throw new Error("I could not identify the inventory headings in this report.");
+    const headers=matrix[headerRowIndex].map(h=>String(h).trim());
+    const dataRows=matrix.slice(headerRowIndex+1);
     const categoryIndex=findHeader(headers,
-      ["category","category name","room category","primary category name","accommodation category"],
-      ["category name","room category","accommodation category"]);
+      ["category","category name","room category","primary category name","accommodation category","room type","room type name","accommodation","unit type","inventory category","product","product name"],
+      ["category","room type","accommodation","unit type","product"]);
     const occupancyIndex=findHeader(headers,
-      ["occupancy","occupancy number","occupancy #","guests","guest occupancy"],
-      ["occupancy"]);
+      ["occupancy","occupancy number","occupancy #","guests","guest occupancy","guest capacity","sleeps"],
+      ["occupancy","guest capacity","sleeps"]);
     const availableIndex=findHeader(headers,
-      ["available inventory","inventory available","available","availability","rooms available","available rooms","quantity available","qty available"],
-      ["available inventory","inventory available","rooms available","available rooms","quantity available","qty available"]);
-    if(categoryIndex<0)throw new Error("I could not find the room category column.");
+      ["available inventory","inventory available","available","availability","rooms available","available rooms","quantity available","qty available","remaining","remaining inventory","available quantity"],
+      ["available","availability","inventory","remaining","quantity","qty"]);
+    if(categoryIndex<0)throw new Error("I found the report headings, but not its room category or room type column.");
     const grouped=new Map();
-    for(const row of matrix){
+    for(const row of dataRows){
       const category=String(row[categoryIndex]||"").trim();
       if(!category)continue;
       const occupancy=occupancyIndex>=0?String(row[occupancyIndex]||"").trim():"";
