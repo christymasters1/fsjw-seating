@@ -2902,11 +2902,12 @@ setInterval(() => {
     #rightReservationRail #workQueueMode{width:100%;padding:10px;background:#fff;border-radius:8px}
     #rightReservationRail .workCards{gap:9px}
     #rightReservationRail .workCard{padding:10px}
-    #rightReservationRail .workMiniMetrics{display:flex!important;flex-wrap:wrap;gap:3px!important;margin:5px 0 7px!important;padding:5px 6px;background:#f4f7fb;border:1px solid #dce4ee;border-radius:7px}
-    #rightReservationRail .workMiniMetric{display:inline!important;flex:0 0 auto;border:0!important;background:transparent!important;padding:0!important}
-    #rightReservationRail .workMiniMetric:not(:last-child)::after{content:" · ";color:var(--muted);font-weight:400}
-    #rightReservationRail .workMiniMetric b{display:inline!important;font-size:11px!important;line-height:1.2!important}
-    #rightReservationRail .workMiniMetric span{display:inline!important;margin:0!important;font-size:8px!important;line-height:1.2!important}
+    #rightReservationRail .workMiniMetrics{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important;margin:7px 0 9px!important;padding:0!important;background:transparent!important;border:0!important}
+    #rightReservationRail .workMiniMetric{display:block!important;min-width:0!important;border:1px solid #dce4ee!important;background:#f4f7fb!important;border-radius:7px!important;padding:7px 8px!important}
+    #rightReservationRail .workMiniMetric.sellable{background:#edf8f1!important;border-color:#cce9d6!important}
+    #rightReservationRail .workMiniMetric::after{content:none!important}
+    #rightReservationRail .workMiniMetric b{display:block!important;font-size:16px!important;line-height:1.05!important;margin-bottom:3px!important}
+    #rightReservationRail .workMiniMetric span{display:block!important;margin:0!important;font-size:9px!important;line-height:1.25!important}
     #rightReservationRail #roomAvailabilityPanel{margin:7px 0 9px!important}
     .workResolve{background:#173d70!important;color:#fff!important;border-color:#173d70!important}.workCardActions{flex-wrap:wrap}.workCardActions .workResolve{flex:0 0 auto}
     .rezExtraFields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:7px 0}.rezExtraFields>div{border:1px solid var(--line);background:#f8fafc;border-radius:7px;padding:7px}.rezExtraFields span{display:block;font-size:8px;color:var(--muted);text-transform:uppercase;font-weight:800;letter-spacing:.04em}.rezExtraFields b{display:block;margin-top:2px;font-size:10px;color:var(--navy);line-height:1.25}
@@ -3321,9 +3322,13 @@ setInterval(() => {
         '<div class="roomAvailabilityHead"><div><div class="kicker">Room Availability</div><div id="roomAvailabilityMeta" class="small"></div></div></div>'+
         '<div id="roomAvailabilityList"></div>';
     }
-    const upcomingTitle=rail.querySelector(".rightRailTitle");
-    if(panel.parentElement!==rail || panel.nextElementSibling!==upcomingTitle){
-      rail.insertBefore(panel,upcomingTitle||rail.firstChild);
+    const queue=document.getElementById("workQueueMode");
+    const cards=document.getElementById("workCards");
+    if(queue&&cards&&queue.style.display!=="none"){
+      if(panel.parentElement!==queue||panel.nextElementSibling!==cards)queue.insertBefore(panel,cards);
+    }else{
+      const upcomingTitle=rail.querySelector(".rightRailTitle");
+      if(panel.parentElement!==rail||panel.nextElementSibling!==upcomingTitle)rail.insertBefore(panel,upcomingTitle||rail.firstChild);
     }
     return true;
   }
