@@ -177,20 +177,35 @@
         }
       });
     }
-    const sidebar=document.querySelector(".sidebar");
-    if(sidebar&&!document.getElementById("roomAvailabilityPanel")){
-      const panel=document.createElement("section");
+    placePanel();
+    render();
+  }
+  function placePanel(){
+    const rail=document.getElementById("rightReservationRail");
+    if(!rail)return false;
+    let panel=document.getElementById("roomAvailabilityPanel");
+    if(!panel){
+      panel=document.createElement("section");
       panel.id="roomAvailabilityPanel";
       panel.innerHTML=
         '<div class="roomAvailabilityHead"><div><div class="kicker">Room Availability</div><div id="roomAvailabilityMeta" class="small"></div></div></div>'+
         '<div id="roomAvailabilityList"></div>';
-      sidebar.insertBefore(panel,sidebar.firstChild);
     }
-    render();
+    const upcomingTitle=rail.querySelector(".rightRailTitle");
+    if(panel.parentElement!==rail || panel.nextElementSibling!==upcomingTitle){
+      rail.insertBefore(panel,upcomingTitle||rail.firstChild);
+    }
+    return true;
   }
   const style=document.createElement("style");
   style.textContent=`
-    #roomAvailabilityPanel{border:1px solid #cfd9ee;background:#f8faff;border-radius:8px;padding:9px;margin-bottom:10px;flex:0 0 auto}
+    @media(min-width:1101px){
+      .fsjwThreeColumnLayout{grid-template-columns:minmax(250px,310px) minmax(0,1fr) minmax(280px,320px)!important;grid-template-areas:"left map right"!important}
+      .fsjwThreeColumnLayout>.rightbar,.fsjwThreeColumnLayout>.sidebar{grid-area:left!important;min-width:0!important}
+      .fsjwThreeColumnLayout>.mapcard{grid-area:map!important;grid-column:2!important;grid-row:1!important;width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;left:auto!important;right:auto!important;transform:none!important;justify-self:stretch!important;overflow:auto!important}
+      .fsjwThreeColumnLayout>#rightReservationRail{grid-area:right!important;grid-column:3!important;grid-row:1!important;width:100%!important;min-width:0!important;margin:0!important;left:auto!important;right:auto!important;transform:none!important}
+    }
+    #roomAvailabilityPanel{border:1px solid #cfd9ee;background:#f8faff;border-radius:8px;padding:9px;margin:0 0 12px;flex:0 0 auto}
     .roomAvailabilityHead{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;padding-bottom:7px;border-bottom:1px solid #dfe5f1}
     #roomAvailabilityMeta{font-size:9px;margin-top:3px}
     #roomAvailabilityList{max-height:245px;overflow:auto;margin-top:6px;padding-right:2px}
@@ -203,6 +218,14 @@
   `;
   document.head.appendChild(style);
   load();
+  const keepPlaced=()=>{
+    if(!placePanel())return;
+    render();
+  };
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",install);
   else install();
+  window.setTimeout(keepPlaced,100);
+  window.setTimeout(keepPlaced,500);
+  const placementObserver=new MutationObserver(()=>window.requestAnimationFrame(keepPlaced));
+  placementObserver.observe(document.body,{childList:true,subtree:true});
 })();
