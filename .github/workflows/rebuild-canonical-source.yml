@@ -29,13 +29,18 @@ jobs:
       - name: Integrate native historical seating
         run: python scripts/integrate_historical_seating.py
 
+      - name: Keep complete canonical source copy
+        run: cp index.html src/index.html
+
       - name: Verify canonical source
         run: |
           python - <<'PY'
           from pathlib import Path
           text = Path('index.html').read_text()
+          complete = Path('src/index.html').read_text()
           generator = Path('scripts/rebuild_canonical_source.py').read_text()
           history = Path('src/historical_seating.js').read_text()
+          assert complete == text
           assert 'standalone source; no runtime patches; reservation details imported natively' in text
           assert 'patch/' not in text
           assert text.count('if (occupant) {') >= 2
@@ -43,9 +48,13 @@ jobs:
           assert 'created_on:v.created_on || null' in text
           assert 'start_date:v.start_date || null' in text
           assert 'end_date:v.end_date || null' in text
+          assert 'category_name:v.category_name || null' in text
           assert 'category_code:v.category_code || null' in text
+          assert 'occupancy_number:v.occupancy_number ?? (v.guests?.size || null)' in text
           assert 'night_count:v.night_count' in text
           assert 'seat_upgrade_status:v.seat_upgrade_status || null' in text
+          assert 'source.ProductName' in text
+          assert 'detailOccupancy' in text
           assert 'if (upgradeCode === "SUP") {' in generator
           assert 'persistentReservationSearch' in text
           assert 'Search guest or reservation #' in text
@@ -65,12 +74,12 @@ jobs:
 
       - name: Commit canonical app
         run: |
-          if git diff --quiet -- index.html; then
+          if git diff --quiet -- index.html src/index.html; then
             echo 'No canonical app change needed.'
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html
-          git commit -m 'Add native 2025 historical seating'
+          git add index.html src/index.html
+          git commit -m 'Sync complete canonical seating source'
           git push
