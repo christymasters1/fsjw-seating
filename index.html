@@ -1131,6 +1131,13 @@ function selectedGuestDisplayName(gs) {
   const guest = gs.find(g => String(g.id) === String(selectedGuest)) || gs[0];
   return guest?.guest_name || "Reservation";
 }
+function roomInventoryDetails(record) {
+  try {
+    return window.FSJWRoomAvailability?.lookupByCode?.(record?.category_code || "") || null;
+  } catch (error) {
+    return null;
+  }
+}
 
 function renderDetails() {
   const host = $("reservationDetail");
@@ -1157,14 +1164,16 @@ function renderDetails() {
   const detailLength = record?.night_count !== null && record?.night_count !== undefined && record?.night_count !== ""
     ? String(record.night_count) + " night" + (String(record.night_count) === "1" ? "" : "s")
     : "Not available";
+  const roomInventory = roomInventoryDetails(record);
+  const detailCategoryName = record?.category_name || roomInventory?.categoryName || "Not available";
   const detailOccupancy = record?.occupancy_number !== null && record?.occupancy_number !== undefined && record?.occupancy_number !== ""
     ? String(record.occupancy_number)
-    : (gs.length ? String(gs.length) : "Not available");
+    : (roomInventory?.occupancy ? String(roomInventory.occupancy) : (gs.length ? String(gs.length) : "Not available"));
 
   host.innerHTML =
     '<div class="rightRezGuestName"><span>Viewing Guest</span><b>' + esc(selectedGuestDisplayName(gs)) + '</b></div>' +
     '<div class="rightRezGrid">' +
-      reservationDetailField("Category Name", record?.category_name || "Not available") +
+      reservationDetailField("Category Name", detailCategoryName) +
       reservationDetailField("Category Code", record?.category_code || "Not available") +
       reservationDetailField("Occupancy #", detailOccupancy) +
       reservationDetailField("Seat Upgrade Fee", record?.seat_upgrade_status || "Not available") +
