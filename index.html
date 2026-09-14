@@ -825,7 +825,7 @@ function suiteRequestRows() {
 function roomRequestRows() {
   return reservations
     .filter(isRoomUpgradeRequest)
-    .sort((a,b) => requestDate(a) - requestDate(b) || String(a.rez_id).localeCompare(String(b.rez_id)));
+    .sort((a,b) => String(a.rez_id).localeCompare(String(b.rez_id), undefined, {numeric:true, sensitivity:"base"}));
 }
 
 function groupRequestRows() {
@@ -838,7 +838,7 @@ function groupRequestRows() {
     const explicit = requestList(record).some(x => /Group Seating Request/i.test(x));
     if (!linked.length && !explicit) return;
 
-    const memberIds = [...new Set([rezId, ...linked.map(String)])].sort();
+    const memberIds = [...new Set([rezId, ...linked.map(String)])].sort((a,b) => String(a).localeCompare(String(b), undefined, {numeric:true, sensitivity:"base"}));
     const key = memberIds.join("|");
     if (seen.has(key)) return;
     seen.add(key);
@@ -846,7 +846,7 @@ function groupRequestRows() {
     const records = memberIds
       .map(id => reservations.find(r => String(r.rez_id) === id))
       .filter(Boolean);
-    const first = records.sort((a,b) => requestDate(a) - requestDate(b))[0] || record;
+    const first = records.sort((a,b) => String(a.rez_id).localeCompare(String(b.rez_id), undefined, {numeric:true, sensitivity:"base"}))[0] || record;
     rows.push({
       key,
       rez_id:String(first.rez_id),
@@ -857,7 +857,7 @@ function groupRequestRows() {
     });
   });
 
-  return rows.sort((a,b) => requestDate(a.dateRecord) - requestDate(b.dateRecord) || a.key.localeCompare(b.key));
+  return rows.sort((a,b) => String(a.rez_id).localeCompare(String(b.rez_id), undefined, {numeric:true, sensitivity:"base"}));
 }
 
 function renderRequestWorkbench() {
@@ -2818,7 +2818,7 @@ setInterval(() => {
     }else if(requestView==="room"){
       metricsHost.innerHTML='<div class="workMiniMetric"><b>'+allRows.length+'</b><span>Open room upgrades</span></div><div class="workMiniMetric"><b>'+roomRequestRows().length+'</b><span>Total room-upgrade requests</span></div>';infoHost.textContent="Lowest reservation number first. Status changes stay in the active queue until you click Mark Complete. Then the next guest moves forward.";
     }else{
-      const people=allRows.reduce((s,r)=>s+Number(r.guestCount||0),0);metricsHost.innerHTML='<div class="workMiniMetric"><b>'+allRows.length+'</b><span>Open seating groups</span></div><div class="workMiniMetric"><b>'+people+'</b><span>Guests in open groups</span></div>';infoHost.textContent="Search or work the next five groups. Click Mark Complete only when the seating request is fully handled.";
+      const people=allRows.reduce((s,r)=>s+Number(r.guestCount||0),0);metricsHost.innerHTML='<div class="workMiniMetric"><b>'+allRows.length+'</b><span>Open seating groups</span></div><div class="workMiniMetric"><b>'+people+'</b><span>Guests in open groups</span></div>';infoHost.textContent="Lowest reservation number first. Search or work the next five groups. Click Mark Complete only when the seating request is fully handled.";
     }
     cardsHost.innerHTML=visible.length?visible.map((r,index)=>{const rezId=workRowRezId(r),isGroup=requestView==="group",status=latestRequestStatus(rezId,requestView),names=isGroup?r.names:rezGuests(rezId).map(g=>g.guest_name).join(" / "),party=isGroup?r.guestCount:rezGuestCount(rezId),record=rezRecord(rezId),copy=isGroup?(r.memberIds.length+" linked reservations"):(requestText(record)||(requestView==="suite"?"Suite request":"Room upgrade request")),need=requestView==="suite"?Math.max(0,party-blueSeatsForRez(rezId)):0,active=String(selectedRez)===String(rezId)?" active":"",statusClass=String(status||"pending").replace(/[^a-z_]/g,"");return '<div class="workCard'+active+'" data-work-rez="'+esc(rezId)+'"><div class="workCardTop"><div class="workCardRez">'+(index===0&&!workSearch?'WORK NOW · ':'')+'#'+esc(rezId)+'</div><span class="workCardStatus '+esc(statusClass)+'">'+esc(String(status||"pending").replace(/_/g," "))+'</span></div><div class="workCardNames">'+esc(names||"No guest name")+'</div><div class="workCardMeta">'+party+' guest'+(party===1?'':'s')+(isGroup?' · '+r.memberIds.map(id=>'#'+id).join(', '):' · reserved '+esc(formatRequestDate(r)))+'</div><div class="workCardRequest">'+esc(copy)+'</div>'+(requestView==="suite"?'<div class="workCardBlue">Needs '+need+' blue seat'+(need===1?'':'s')+'</div>':'')+'<div class="workCardActions"><select class="workStatusSelect" data-type="'+esc(requestView)+'" data-rez="'+esc(rezId)+'">'+workStatusOptions(requestView,status)+'</select><button class="workOpen" data-open-rez="'+esc(rezId)+'">Open</button><button class="workResolve" data-type="'+esc(requestView)+'" data-rez="'+esc(rezId)+'">Mark Complete</button></div></div>';}).join(""):'<div class="empty">'+(workSearch?'No matching open requests.':'Nothing pending in this queue.')+'</div>';
     footerHost.textContent=rows.length>5?'Showing 5 of '+rows.length+' matching active requests. Mark one complete and the next automatically appears.':rows.length+' matching active request'+(rows.length===1?'':'s')+'.';
