@@ -3137,12 +3137,27 @@ setInterval(() => {
     const number=Number(match[0]);
     return Number.isFinite(number)&&number>=0?number:null;
   }
+  function normalizeCode(value){return String(value||"").trim().toUpperCase();}
+  function lookupByCode(code){
+    const target=normalizeCode(code);
+    if(!target)return null;
+    const matches=inventory.items.filter(item=>normalizeCode(item.categoryCode)===target);
+    if(!matches.length)return null;
+    const withName=matches.find(item=>item.categoryName);
+    const withOccupancy=matches.find(item=>item.occupancy);
+    return {
+      categoryCode:target,
+      categoryName:(withName&&withName.categoryName)||"",
+      occupancy:(withOccupancy&&withOccupancy.occupancy)||""
+    };
+  }
+  function expose(){
+    window.FSJWRoomAvailability={lookupByCode,getInventory:()=>inventory};
+  }
   function importRows(text,fileName){
     const matrix=parseMatrix(text);
     if(matrix.length<2)throw new Error("The availability CSV has no data rows.");
 
-    // RezMagic exports may place a report title and filters above the true headings.
-    // Scan for the most likely header row instead of assuming it is row one.
     let headerRowIndex=-1;
     let bestScore=-1;
     const scanLimit=Math.min(matrix.length,30);
@@ -3158,44 +3173,64 @@ setInterval(() => {
     if(headerRowIndex<0||bestScore<4)throw new Error("I could not identify the inventory headings in this report.");
     const headers=matrix[headerRowIndex].map(h=>String(h).trim());
     const dataRows=matrix.slice(headerRowIndex+1);
-    const categoryIndex=findHeader(headers,
-      ["category","category name","room category","primary category name","accommodation category","room type","room type name","accommodation","unit type","inventory category","product","product name"],
-      ["category","room type","accommodation","unit type","product"]);
+
+    const categoryCodeIndex=findHeader(headers,
+      ["category code","primary category code","room category code","accommodation category code","room type code","unit type code"],
+      ["category code","room type code","unit type code"]);
+    const categoryNameIndex=findHeader(headers,
+      ["category name","primary category name","room category name","accommodation category name","room type name","unit type name","product name"],
+      ["category name","room category name","room type name","unit type name","product name"]);
+    const genericCategoryIndex=findHeader(headers,
+      ["category","room category","accommodation category","room type","accommodation","unit type","inventory category","product"],
+      ["room category","room type","accommodation","unit type","inventory category"]);
     const occupancyIndex=findHeader(headers,
       ["occupancy","occupancy number","occupancy #","guests","guest occupancy","guest capacity","sleeps"],
       ["occupancy","guest capacity","sleeps"]);
     const availableIndex=findHeader(headers,
       ["available inventory","inventory available","available","availability","rooms available","available rooms","quantity available","qty available","remaining","remaining inventory","available quantity"],
       ["available","availability","inventory","remaining","quantity","qty"]);
-    if(categoryIndex<0)throw new Error("I found the report headings, but not its room category or room type column.");
+
+    if(categoryCodeIndex<0 && categoryNameIndex<0 && genericCategoryIndex<0){
+      throw new Error("I found the report headings, but not its room category fields.");
+    }
+
     const grouped=new Map();
     for(const row of dataRows){
-      const category=String(row[categoryIndex]||"").trim();
-      if(!category)continue;
+      let categoryCode=categoryCodeIndex>=0?String(row[categoryCodeIndex]||"").trim():"";
+      let categoryName=categoryNameIndex>=0?String(row[categoryNameIndex]||"").trim():"";
+      const generic=genericCategoryIndex>=0?String(row[genericCategoryIndex]||"").trim():"";
+      if(!categoryCode && generic && /^[A-Z0-9-]{2,12}$/i.test(generic))categoryCode=generic;
+      if(!categoryName && generic && generic!==categoryCode)categoryName=generic;
+      if(!categoryCode && !categoryName)continue;
       const occupancy=occupancyIndex>=0?String(row[occupancyIndex]||"").trim():"";
       const found=availableIndex>=0?positiveNumber(row[availableIndex]):null;
       const available=found===null?1:found;
       if(available<=0)continue;
-      const key=category+"\u0000"+occupancy;
-      const prior=grouped.get(key)||{category,occupancy,available:0};
+      const key=(categoryCode||categoryName)+"\u0000"+occupancy;
+      const prior=grouped.get(key)||{categoryCode,categoryName,occupancy,available:0};
+      if(!prior.categoryCode&&categoryCode)prior.categoryCode=categoryCode;
+      if(!prior.categoryName&&categoryName)prior.categoryName=categoryName;
       prior.available+=available;
       grouped.set(key,prior);
     }
     const items=[...grouped.values()].sort((a,b)=>
-      a.category.localeCompare(b.category,undefined,{numeric:true})||
+      (a.categoryCode||a.categoryName).localeCompare((b.categoryCode||b.categoryName),undefined,{numeric:true})||
       a.occupancy.localeCompare(b.occupancy,undefined,{numeric:true}));
     if(!items.length)throw new Error("No available room inventory was found.");
     inventory={items,fileName:String(fileName||"Availability CSV"),updatedAt:new Date().toISOString()};
     localStorage.setItem(STORAGE_KEY,JSON.stringify(inventory));
+    expose();
     render();
+    if(typeof renderDetails==="function")renderDetails();
     const total=items.reduce((sum,item)=>sum+item.available,0);
-    if(typeof setStatus==="function")setStatus(total+" available room"+(total===1?"":"s")+" loaded. No money fields were retained.","ok");
+    if(typeof setStatus==="function")setStatus(total+" available room"+(total===1?"":"s")+" loaded. Category names and occupancy are now available to reservation details.","ok");
   }
   function load(){
     try{
       const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||"null");
       if(saved&&Array.isArray(saved.items))inventory=saved;
     }catch(error){localStorage.removeItem(STORAGE_KEY);}
+    expose();
   }
   function render(){
     const host=document.getElementById("roomAvailabilityList");
@@ -3211,7 +3246,8 @@ setInterval(() => {
     meta.textContent=total+" available · "+(date&&!Number.isNaN(date.getTime())?date.toLocaleString():"Latest upload");
     host.innerHTML=inventory.items.map(item=>
       '<div class="roomAvailabilityRow">'+
-        '<div><b>'+escText(item.category)+'</b>'+
+        '<div><b>'+escText(item.categoryName||item.categoryCode)+'</b>'+
+        (item.categoryCode&&item.categoryName?'<span>'+escText(item.categoryCode)+'</span>':'')+
         (item.occupancy?'<span>Occupancy '+escText(item.occupancy)+'</span>':'')+'</div>'+
         '<strong>'+escText(item.available)+'</strong>'+
       '</div>'
