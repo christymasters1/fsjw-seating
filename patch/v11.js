@@ -81,26 +81,33 @@
   }
 
   function ensureStaticSearch(){
-    document.querySelectorAll('.sidebar').forEach(function(sidebar){
-      let shell=sidebar.querySelector('.persistentReservationSearch');
-      if(!shell){
-        shell=document.createElement('div');
-        shell.className='persistentReservationSearch';
-        shell.innerHTML='<input class="search persistentReservationSearchInput" type="search" placeholder="Search guest or reservation #" autocomplete="off" aria-label="Search guest or reservation number">';
-        sidebar.insertBefore(shell,sidebar.firstChild);
-        const input=shell.querySelector('.persistentReservationSearchInput');
-        input.value=searchQuery;
-        input.addEventListener('input',function(){searchQuery=input.value;filterReservations(sidebar);});
-      }
-      const input=shell.querySelector('.persistentReservationSearchInput');
-      if(input&&input.value!==searchQuery)input.value=searchQuery;
-      filterReservations(sidebar);
-    });
+    const snapshot=document.querySelector('.summary');
+    if(!snapshot)return;
+    let shell=document.querySelector('.persistentReservationSearch');
+    if(!shell){
+      shell=document.createElement('div');
+      shell.className='persistentReservationSearch';
+      shell.innerHTML='<input class="search persistentReservationSearchInput" type="search" placeholder="Search guest or reservation #" autocomplete="off" aria-label="Search guest or reservation number">';
+    }
+    if(shell.parentElement!==snapshot||snapshot.firstElementChild!==shell){
+      snapshot.insertBefore(shell,snapshot.firstChild);
+    }
+    const input=shell.querySelector('.persistentReservationSearchInput');
+    if(input&&!input.dataset.searchBound){
+      input.dataset.searchBound='1';
+      input.value=searchQuery;
+      input.addEventListener('input',function(){
+        searchQuery=input.value;
+        document.querySelectorAll('.sidebar').forEach(filterReservations);
+      });
+    }
+    if(input&&input.value!==searchQuery)input.value=searchQuery;
+    document.querySelectorAll('.sidebar').forEach(filterReservations);
   }
 
   const style=document.createElement('style');
   style.textContent=`
-    .persistentReservationSearch{flex:0 0 auto;position:sticky;top:0;z-index:50;background:#fff;padding:0 0 5px}
+    .summary>.persistentReservationSearch{grid-column:1/-1;position:static;background:#f5f7fa;padding:0 0 5px}
     .persistentReservationSearch .search{margin:0;width:100%;background:#fff}
   `;
   document.head.appendChild(style);
