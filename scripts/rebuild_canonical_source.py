@@ -61,7 +61,7 @@ new_target = '''      const target = byRez.get(rezId);
       target.created_on = target.created_on || String(source.CreatedOn || "").trim();
       target.start_date = target.start_date || String(source.AdjStartDate || "").trim();
       target.end_date = target.end_date || String(source.AdjEndDate || "").trim();
-      target.category_name = target.category_name || String(source.PrimaryCategoryName || source.CategoryName || source.PrimaryCategory || source.Category || "").trim();
+      target.category_name = target.category_name || String(source.PrimaryCategoryName || source.CategoryName || source.ProductName || source.PrimaryCategory || source.Category || "").trim();
       target.category_code = target.category_code || String(source.PrimaryCategoryCode || "").trim();
       if (target.occupancy_number === null) {
         const occupancy = Number(String(source.Occupancy || source.OccupancyNumber || source.OccupancyNo || source.OccupancyCount || "").trim());
@@ -93,7 +93,7 @@ payload_fields = '''      requests:[...v.requests],
       end_date:v.end_date || null,
       category_name:v.category_name || null,
       category_code:v.category_code || null,
-      occupancy_number:v.occupancy_number,
+      occupancy_number:v.occupancy_number ?? (v.guests?.size || null),
       night_count:v.night_count,
       seat_upgrade_status:v.seat_upgrade_status || null,
 '''
@@ -132,13 +132,16 @@ old_host = '''  host.innerHTML =
 new_host = '''  const detailLength = record?.night_count !== null && record?.night_count !== undefined && record?.night_count !== ""
     ? String(record.night_count) + " night" + (String(record.night_count) === "1" ? "" : "s")
     : "Not available";
+  const detailOccupancy = record?.occupancy_number !== null && record?.occupancy_number !== undefined && record?.occupancy_number !== ""
+    ? String(record.occupancy_number)
+    : (gs.length ? String(gs.length) : "Not available");
 
   host.innerHTML =
     '<div class="rightRezGuestName"><span>Viewing Guest</span><b>' + esc(selectedGuestDisplayName(gs)) + '</b></div>' +
     '<div class="rightRezGrid">' +
       reservationDetailField("Category Name", record?.category_name || "Not available") +
       reservationDetailField("Category Code", record?.category_code || "Not available") +
-      reservationDetailField("Occupancy #", record?.occupancy_number !== null && record?.occupancy_number !== undefined ? String(record.occupancy_number) : "Not available") +
+      reservationDetailField("Occupancy #", detailOccupancy) +
       reservationDetailField("Seat Upgrade Fee", record?.seat_upgrade_status || "Not available") +
       reservationDetailField("Date of Reservation", formatReservationDetailDate(record?.created_on)) +
       reservationDetailField("Check-In", formatReservationDetailDate(record?.start_date)) +
@@ -203,9 +206,11 @@ assert 'patch/' not in html, 'Canonical index still references a patch asset.'
 assert 'created_on:v.created_on || null' in html
 assert 'category_name:v.category_name || null' in html
 assert 'category_code:v.category_code || null' in html
-assert 'occupancy_number:v.occupancy_number' in html
+assert 'occupancy_number:v.occupancy_number ?? (v.guests?.size || null)' in html
 assert 'night_count:v.night_count' in html
 assert 'seat_upgrade_status:v.seat_upgrade_status || null' in html
+assert 'source.ProductName' in html
+assert 'detailOccupancy' in html
 assert 'YES on reservation' in html
 assert 'Viewing Guest' in html
 assert 'Category Name' in html
