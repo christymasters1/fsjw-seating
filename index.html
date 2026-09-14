@@ -756,7 +756,7 @@ function blueSeatsForRez(rezId) {
 }
 
 function requestDate(record) {
-  const raw = record?.created_on || record?.created_at || "";
+  const raw = record?.reservation_date || record?.date_reserved || record?.reserved_at || record?.rez_date || record?.booking_date || record?.created_on || record?.created_at || "";
   const d = raw ? new Date(raw) : null;
   return d && !Number.isNaN(d.getTime()) ? d : new Date(8640000000000000);
 }
@@ -2372,7 +2372,7 @@ setInterval(() => {
     document.querySelectorAll("[data-work-mode]").forEach(button=>{button.classList.toggle("active",button.dataset.workMode===requestView);button.onclick=()=>{requestView=button.dataset.workMode;const rows=activeWorkRows(requestView);if(rows.length&&!new Set(rows.map(workRowRezId)).has(String(selectedRez))){selectedRez=String(workRowRezId(rows[0]));const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;}renderAll();};});
     if(!requestView){searchMode.style.display="block";queueMode.style.display="none";return;}
     searchMode.style.display="none";queueMode.style.display="block";
-    const labels={suite:"Suite Requests",room:"Room Upgrades",group:"Group Seating"};document.getElementById("workQueueTitle").textContent=labels[requestView];
+    const labels={suite:"Suite Upgrade Queue",room:"Room Upgrade Queue",group:"Group Seating Queue"};document.getElementById("workQueueTitle").textContent=labels[requestView];
     const rows=activeWorkRows(requestView),visible=rows.slice(0,3);
     if(requestView==="suite"){
       const all=suiteRequestRows();const blueOccupied=assignments.filter(a=>{const row=String(a.seat_id||"").match(/^([A-Z]+)/)?.[1];return row&&BLUE_ROWS.has(row);}).length;const open=Math.max(0,BLUE_CAPACITY-blueOccupied);const committed=all.filter(r=>latestRequestStatus(r.rez_id,"suite")==="confirmed").reduce((sum,r)=>sum+Math.max(0,rezGuestCount(r.rez_id)-blueSeatsForRez(r.rez_id)),0);const sellable=Math.max(0,open-committed);
@@ -2779,14 +2779,14 @@ setInterval(() => {
 
   window.resolveWorkRequest=async function(rezId,type){
     try{
-      setStatus("Resolving request…","busy");
+      setStatus("Marking request complete…","busy");
       await api("audit_log",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({user_id:session.user.id,action:"request_status",entity_type:"reservation",entity_id:String(rezId),new_value:{request_type:type,status:"resolved",email:session.user.email,resolved_at:new Date().toISOString()}})});
       requestStatuses=await apiAll("audit_log?select=*&action=eq.request_status&order=created_at.asc");
       const rows=activeWorkRows(type);
       if(rows.length&&!rows.some(r=>String(workRowRezId(r))===String(selectedRez))){selectedRez=String(workRowRezId(rows[0]));const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;}
       renderAll();
-      setStatus("Request resolved. The next reservation is ready.","ok");
-    }catch(error){setStatus("Could not resolve request: "+error.message,"warn");}
+      setStatus("Request completed. The next reservation is ready.","ok");
+    }catch(error){setStatus("Could not complete request: "+error.message,"warn");}
   };
 
   function workMatches(row,mode){
@@ -2806,7 +2806,7 @@ setInterval(() => {
     document.querySelectorAll("[data-work-mode]").forEach(button=>{button.classList.toggle("active",button.dataset.workMode===requestView);button.onclick=()=>{requestView=button.dataset.workMode;workSearch="";const rows=activeWorkRows(requestView);if(rows.length&&!new Set(rows.map(workRowRezId)).has(String(selectedRez))){selectedRez=String(workRowRezId(rows[0]));const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;}renderAll();};});
     if(!requestView){searchMode.style.display="block";queueMode.style.display="none";return;}
     searchMode.style.display="none";queueMode.style.display="block";
-    const labels={suite:"Suite Requests",room:"Room Upgrades",group:"Group Seating"};document.getElementById("workQueueTitle").textContent=labels[requestView];
+    const labels={suite:"Suite Upgrade Queue",room:"Room Upgrade Queue",group:"Group Seating Queue"};document.getElementById("workQueueTitle").textContent=labels[requestView];
     let search=document.getElementById("workQueueSearch");
     if(!search){search=document.createElement("input");search.id="workQueueSearch";search.className="workQueueSearch";search.placeholder="Search name, reservation #, room or request…";document.querySelector(".workQueueHead")?.insertAdjacentElement("afterend",search);search.addEventListener("input",()=>{workSearch=search.value.trim();renderRequestWorkbench();});}
     search.value=workSearch;
@@ -2814,14 +2814,14 @@ setInterval(() => {
     if(requestView==="suite"){
       const all=suiteRequestRows();const blueOccupied=assignments.filter(a=>{const row=String(a.seat_id||"").match(/^([A-Z]+)/)?.[1];return row&&BLUE_ROWS.has(row);}).length;const open=Math.max(0,BLUE_CAPACITY-blueOccupied);const committed=all.filter(r=>latestRequestStatus(r.rez_id,"suite")==="confirmed").reduce((sum,r)=>sum+Math.max(0,rezGuestCount(r.rez_id)-blueSeatsForRez(r.rez_id)),0);const sellable=Math.max(0,open-committed);
       metricsHost.innerHTML='<div class="workMiniMetric sellable"><b>'+sellable+'</b><span>Blue seats available to sell</span></div><div class="workMiniMetric"><b>'+committed+'</b><span>Blue seats committed to confirmed suites</span></div><div class="workMiniMetric"><b>'+open+'</b><span>Physically open blue seats</span></div><div class="workMiniMetric"><b>'+allRows.length+'</b><span>Suite requests still open</span></div>';
-      infoHost.textContent="Changing the dropdown updates the request status but keeps it in this queue. Click Resolve only when you are completely finished with the reservation.";
+      infoHost.textContent="Oldest reservation first. Use the status while you work. When the guest has been moved to a suite and your action is finished, click Mark Complete. They leave this active queue and the next guest moves to Work Now.";
     }else if(requestView==="room"){
-      metricsHost.innerHTML='<div class="workMiniMetric"><b>'+allRows.length+'</b><span>Open room upgrades</span></div><div class="workMiniMetric"><b>'+roomRequestRows().length+'</b><span>Total room-upgrade requests</span></div>';infoHost.textContent="Status changes stay in the queue until you click Resolve. Five reservations are shown at a time.";
+      metricsHost.innerHTML='<div class="workMiniMetric"><b>'+allRows.length+'</b><span>Open room upgrades</span></div><div class="workMiniMetric"><b>'+roomRequestRows().length+'</b><span>Total room-upgrade requests</span></div>';infoHost.textContent="Oldest reservation first. Status changes stay in the active queue until you click Mark Complete. Then the next guest moves forward.";
     }else{
-      const people=allRows.reduce((s,r)=>s+Number(r.guestCount||0),0);metricsHost.innerHTML='<div class="workMiniMetric"><b>'+allRows.length+'</b><span>Open seating groups</span></div><div class="workMiniMetric"><b>'+people+'</b><span>Guests in open groups</span></div>';infoHost.textContent="Search or work the next five groups. Click Resolve only when the seating request is fully handled.";
+      const people=allRows.reduce((s,r)=>s+Number(r.guestCount||0),0);metricsHost.innerHTML='<div class="workMiniMetric"><b>'+allRows.length+'</b><span>Open seating groups</span></div><div class="workMiniMetric"><b>'+people+'</b><span>Guests in open groups</span></div>';infoHost.textContent="Search or work the next five groups. Click Mark Complete only when the seating request is fully handled.";
     }
-    cardsHost.innerHTML=visible.length?visible.map((r,index)=>{const rezId=workRowRezId(r),isGroup=requestView==="group",status=latestRequestStatus(rezId,requestView),names=isGroup?r.names:rezGuests(rezId).map(g=>g.guest_name).join(" / "),party=isGroup?r.guestCount:rezGuestCount(rezId),record=rezRecord(rezId),copy=isGroup?(r.memberIds.length+" linked reservations"):(requestText(record)||(requestView==="suite"?"Suite request":"Room upgrade request")),need=requestView==="suite"?Math.max(0,party-blueSeatsForRez(rezId)):0,active=String(selectedRez)===String(rezId)?" active":"",statusClass=String(status||"pending").replace(/[^a-z_]/g,"");return '<div class="workCard'+active+'" data-work-rez="'+esc(rezId)+'"><div class="workCardTop"><div class="workCardRez">'+(index===0&&!workSearch?'WORK NOW · ':'')+'#'+esc(rezId)+'</div><span class="workCardStatus '+esc(statusClass)+'">'+esc(String(status||"pending").replace(/_/g," "))+'</span></div><div class="workCardNames">'+esc(names||"No guest name")+'</div><div class="workCardMeta">'+party+' guest'+(party===1?'':'s')+(isGroup?' · '+r.memberIds.map(id=>'#'+id).join(', '):' · reserved '+esc(formatRequestDate(r)))+'</div><div class="workCardRequest">'+esc(copy)+'</div>'+(requestView==="suite"?'<div class="workCardBlue">Needs '+need+' blue seat'+(need===1?'':'s')+'</div>':'')+'<div class="workCardActions"><select class="workStatusSelect" data-type="'+esc(requestView)+'" data-rez="'+esc(rezId)+'">'+workStatusOptions(requestView,status)+'</select><button class="workOpen" data-open-rez="'+esc(rezId)+'">Open</button><button class="workResolve" data-type="'+esc(requestView)+'" data-rez="'+esc(rezId)+'">Resolve</button></div></div>';}).join(""):'<div class="empty">'+(workSearch?'No matching open requests.':'Nothing pending in this queue.')+'</div>';
-    footerHost.textContent=rows.length>5?'Showing 5 of '+rows.length+' matching open requests. Resolve one and the next automatically appears.':rows.length+' matching open request'+(rows.length===1?'':'s')+'.';
+    cardsHost.innerHTML=visible.length?visible.map((r,index)=>{const rezId=workRowRezId(r),isGroup=requestView==="group",status=latestRequestStatus(rezId,requestView),names=isGroup?r.names:rezGuests(rezId).map(g=>g.guest_name).join(" / "),party=isGroup?r.guestCount:rezGuestCount(rezId),record=rezRecord(rezId),copy=isGroup?(r.memberIds.length+" linked reservations"):(requestText(record)||(requestView==="suite"?"Suite request":"Room upgrade request")),need=requestView==="suite"?Math.max(0,party-blueSeatsForRez(rezId)):0,active=String(selectedRez)===String(rezId)?" active":"",statusClass=String(status||"pending").replace(/[^a-z_]/g,"");return '<div class="workCard'+active+'" data-work-rez="'+esc(rezId)+'"><div class="workCardTop"><div class="workCardRez">'+(index===0&&!workSearch?'WORK NOW · ':'')+'#'+esc(rezId)+'</div><span class="workCardStatus '+esc(statusClass)+'">'+esc(String(status||"pending").replace(/_/g," "))+'</span></div><div class="workCardNames">'+esc(names||"No guest name")+'</div><div class="workCardMeta">'+party+' guest'+(party===1?'':'s')+(isGroup?' · '+r.memberIds.map(id=>'#'+id).join(', '):' · reserved '+esc(formatRequestDate(r)))+'</div><div class="workCardRequest">'+esc(copy)+'</div>'+(requestView==="suite"?'<div class="workCardBlue">Needs '+need+' blue seat'+(need===1?'':'s')+'</div>':'')+'<div class="workCardActions"><select class="workStatusSelect" data-type="'+esc(requestView)+'" data-rez="'+esc(rezId)+'">'+workStatusOptions(requestView,status)+'</select><button class="workOpen" data-open-rez="'+esc(rezId)+'">Open</button><button class="workResolve" data-type="'+esc(requestView)+'" data-rez="'+esc(rezId)+'">Mark Complete</button></div></div>';}).join(""):'<div class="empty">'+(workSearch?'No matching open requests.':'Nothing pending in this queue.')+'</div>';
+    footerHost.textContent=rows.length>5?'Showing 5 of '+rows.length+' matching active requests. Mark one complete and the next automatically appears.':rows.length+' matching active request'+(rows.length===1?'':'s')+'.';
     document.getElementById("queueBack").onclick=()=>{requestView="";workSearch="";renderAll();};
     cardsHost.querySelectorAll(".workCard").forEach(card=>card.addEventListener("click",e=>{if(e.target.closest("select,button"))return;selectedRez=card.dataset.workRez;const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;renderAll();}));
     cardsHost.querySelectorAll(".workOpen").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();selectedRez=b.dataset.openRez;const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;renderAll();}));
