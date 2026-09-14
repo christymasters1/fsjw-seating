@@ -2,6 +2,27 @@
 (function(){
   const STORAGE_KEY="fsjw_room_availability_v1";
   const MONEY_HEADER=/(rate|price|cost|amount|fee|payment|balance|revenue|total.?charge|currency|deposit)/i;
+  const ROOM_NAMES=Object.freeze({
+    K1:"City King",
+    Q2:"City 2Q",
+    Q2RCD:"City 2Q Roll In",
+    K1RS:"Pool View King",
+    Q2RS:"Pool View 2Q",
+    K1RF:"Oceanfront King",
+    K1RV:"Oceanview King",
+    Q2RF:"Oceanfront 2Q",
+    K1RFJ:"Oceanfront King Roll In",
+    K1RFC:"Oceanfront King Acc Tub",
+    K1RF:"Oceanfront King Hearing Acc",
+    K1JF:"King Junior Suite",
+    K1LV:"King Terrace Balcony",
+    K1RFU1:"King Atlantic Suite",
+    Q2RFU1:"2Q Atlantic Suite",
+    Q2RFI1:"2Q Atlantic Acc Tub",
+    K1LFU1:"King Terrace Suite",
+    K1LVU1:"King Cabana Suite",
+    Q2LFU1:"2Q Cabana Suite"
+  });
   let inventory={items:[],fileName:"",updatedAt:""};
 
   function escText(value){
@@ -42,21 +63,23 @@
     return Number.isFinite(number)&&number>=0?number:null;
   }
   function normalizeCode(value){return String(value||"").trim().toUpperCase();}
+  function roomNameFor(code){return ROOM_NAMES[normalizeCode(code)]||"";}
   function lookupByCode(code){
     const target=normalizeCode(code);
     if(!target)return null;
     const matches=inventory.items.filter(item=>normalizeCode(item.categoryCode)===target);
-    if(!matches.length)return null;
     const withName=matches.find(item=>item.categoryName);
     const withOccupancy=matches.find(item=>item.occupancy);
+    const builtInName=roomNameFor(target);
+    if(!matches.length&&!builtInName)return null;
     return {
       categoryCode:target,
-      categoryName:(withName&&withName.categoryName)||"",
+      categoryName:builtInName||(withName&&withName.categoryName)||"",
       occupancy:(withOccupancy&&withOccupancy.occupancy)||""
     };
   }
   function expose(){
-    window.FSJWRoomAvailability={lookupByCode,getInventory:()=>inventory};
+    window.FSJWRoomAvailability={lookupByCode,roomNameFor,getInventory:()=>inventory,roomNames:ROOM_NAMES};
   }
   function importRows(text,fileName){
     const matrix=parseMatrix(text);
@@ -105,6 +128,8 @@
       const generic=genericCategoryIndex>=0?String(row[genericCategoryIndex]||"").trim():"";
       if(!categoryCode && generic && /^[A-Z0-9-]{2,12}$/i.test(generic))categoryCode=generic;
       if(!categoryName && generic && generic!==categoryCode)categoryName=generic;
+      if(categoryCode)categoryCode=normalizeCode(categoryCode);
+      if(categoryCode)categoryName=roomNameFor(categoryCode)||categoryName;
       if(!categoryCode && !categoryName)continue;
       const occupancy=occupancyIndex>=0?String(row[occupancyIndex]||"").trim():"";
       const found=availableIndex>=0?positiveNumber(row[availableIndex]):null;
@@ -127,18 +152,25 @@
     render();
     if(typeof renderDetails==="function")renderDetails();
     const total=items.reduce((sum,item)=>sum+item.available,0);
-    if(typeof setStatus==="function")setStatus(total+" available room"+(total===1?"":"s")+" loaded. Category names and occupancy are now available to reservation details.","ok");
+    if(typeof setStatus==="function")setStatus(total+" available room"+(total===1?"":"s")+" loaded. Built-in room names are applied automatically.","ok");
   }
   function load(){
     try{
       const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||"null");
       if(saved&&Array.isArray(saved.items)){
         saved.items=saved.items.map(item=>{
-          if(item.categoryName||item.categoryCode||!item.category)return item;
-          const legacy=String(item.category).trim();
-          return /^[A-Z0-9-]{2,12}$/i.test(legacy)
-            ? {...item,categoryCode:legacy}
-            : {...item,categoryName:legacy};
+          let next={...item};
+          if(!next.categoryName&&!next.categoryCode&&next.category){
+            const legacy=String(next.category).trim();
+            next=/^[A-Z0-9-]{2,12}$/i.test(legacy)
+              ? {...next,categoryCode:normalizeCode(legacy)}
+              : {...next,categoryName:legacy};
+          }
+          if(next.categoryCode){
+            next.categoryCode=normalizeCode(next.categoryCode);
+            next.categoryName=roomNameFor(next.categoryCode)||next.categoryName||"";
+          }
+          return next;
         });
         inventory=saved;
         localStorage.setItem(STORAGE_KEY,JSON.stringify(inventory));
@@ -158,14 +190,16 @@
     const total=inventory.items.reduce((sum,item)=>sum+Number(item.available||0),0);
     const date=inventory.updatedAt?new Date(inventory.updatedAt):null;
     meta.textContent=total+" available · "+(date&&!Number.isNaN(date.getTime())?date.toLocaleString():"Latest upload");
-    host.innerHTML=inventory.items.map(item=>
-      '<div class="roomAvailabilityRow">'+
-        '<div><b>'+escText(item.categoryName||item.categoryCode||item.category||"Room category")+'</b>'+
-        (item.categoryCode&&item.categoryName?'<span>'+escText(item.categoryCode)+'</span>':'')+
+    host.innerHTML=inventory.items.map(item=>{
+      const code=normalizeCode(item.categoryCode||"");
+      const name=roomNameFor(code)||item.categoryName||"";
+      const label=code&&name?code+" — "+name:(name||code||item.category||"Room category");
+      return '<div class="roomAvailabilityRow">'+
+        '<div><b>'+escText(label)+'</b>'+
         (item.occupancy?'<span>Occupancy '+escText(item.occupancy)+'</span>':'')+'</div>'+
         '<strong>'+escText(item.available)+'</strong>'+
-      '</div>'
-    ).join("");
+      '</div>';
+    }).join("");
   }
   function install(){
     const actions=document.querySelector(".actions");
