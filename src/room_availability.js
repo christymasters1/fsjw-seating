@@ -13,7 +13,7 @@
     Q2RF:"Oceanfront 2Q",
     K1RFJ:"Oceanfront King Roll In",
     K1RFC:"Oceanfront King Acc Tub",
-    K1RF:"Oceanfront King Hearing Acc",
+    K1RFV:"Oceanfront King Hearing Acc",
     K1JF:"King Junior Suite",
     K1LV:"King Terrace Balcony",
     K1RFU1:"King Atlantic Suite",
