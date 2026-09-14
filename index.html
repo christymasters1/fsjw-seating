@@ -2897,7 +2897,8 @@ setInterval(() => {
 
   const style=document.createElement("style");style.textContent=`
     #rightReservationRail.workQueueOpen{width:100%;max-height:930px;overflow:auto}
-    #rightReservationRail.workQueueOpen>:not(#workQueueMode){display:none!important}
+    #rightReservationRail.workQueueOpen>:not(#workQueueMode):not(#roomAvailabilityPanel){display:none!important}
+    #rightReservationRail .rightRailLegendTitle,#rightReservationRail #rightLegendHost{display:none!important}
     #rightReservationRail #workQueueMode{width:100%;padding:10px;background:#fff;border-radius:8px}
     #rightReservationRail .workCards{gap:9px}
     #rightReservationRail .workCard{padding:10px}
