@@ -3498,12 +3498,30 @@ setInterval(() => {
     while((match=named.exec(text))){const date=new Date(Date.UTC(match[3]?Number(match[3]):year,new Date(match[1]+" 1, 2000").getMonth(),Number(match[2])));if(!Number.isNaN(date.getTime()))found.push(keyFromDate(date));}
     return unique(found);
   }
+  function dateValues(value,year){
+    if(value===null||value===undefined)return [];
+    if(Array.isArray(value))return value.flatMap(item=>dateValues(item,year));
+    if(typeof value!=="object")return datesInText(value,year);
+    const entries=Object.entries(value),start=entries.find(([key])=>/^(?:start|check.?in|arrival|from)(?:[_\s-]*date)?$/i.test(key)),end=entries.find(([key])=>/^(?:end|check.?out|departure|to)(?:[_\s-]*date)?$/i.test(key));
+    const values=[];
+    // A start/end pair is one continuous reservation segment. Expand it so a
+    // valid 11/2–11/5 stay means 11/2, 11/3, 11/4—not a false gap.
+    if(start&&end){const first=datesInText(start[1],year)[0],last=datesInText(end[1],year)[0];if(first&&last){let cursor=dateFromKey(first).getTime(),until=dateFromKey(last).getTime();while(cursor<until){values.push(keyFromDate(new Date(cursor)));cursor+=DAY;}}}
+    entries.forEach(([key,item])=>{
+      if(start&&key===start[0])return;
+      if(end&&key===end[0])return;
+      values.push(...dateValues(item,year));
+    });
+    return values;
+  }
   function selectedNightDates(record){
     const year=referenceYear(record),values=[];
     const directKeys=["night_dates","stay_dates","selected_dates","pre_night_dates","post_night_dates","pre_dates","post_dates"];
-    directKeys.forEach(key=>{const raw=record?.[key];if(Array.isArray(raw))raw.forEach(v=>values.push(...datesInText(v,year)));else values.push(...datesInText(raw,year));});
-    const requests=Array.isArray(record?.requests)?record.requests:[];
-    requests.forEach(request=>values.push(...datesInText(request,year)));
+    directKeys.forEach(key=>values.push(...dateValues(record?.[key],year)));
+    // Requests may be an array, a JSON object, or nested rows from RezMagic.
+    // Read every date in that reservation's request data; do not assume a 4-day
+    // event window or a specific storage shape.
+    values.push(...dateValues(record?.requests,year));
     return unique(values).sort();
   }
   function gapForReservation(record){
@@ -3522,8 +3540,8 @@ setInterval(() => {
     const readable=reservations.filter(record=>selectedNightDates(record).length>0).length;
     closeModal();
     const modal=document.createElement("div");modal.id="dateGapModal";modal.className="dateGapModal";
-    const body=results.length?'<div class="dateGapIntro warn"><b>'+results.length+'</b> reservation'+(results.length===1?'':'s')+' need'+(results.length===1?'s':'')+' a date check. Only a missing day between selected night dates is shown.</div><div class="dateGapList">'+results.map(({record,dates,missing})=>'<article class="dateGapRow"><div><b>Rez #'+escGap(record.rez_id)+'</b><span>'+escGap(guestNames(record.rez_id))+'</span><small>Selected: '+escGap(dates.map(displayDate).join(" · "))+'</small><small class="missing">Missing: '+escGap(missing.map(displayDate).join(" · "))+'</small></div><button data-open-gap-rez="'+escGap(record.rez_id)+'">Open</button></article>').join("")+'</div>':'<div class="dateGapIntro ok"><b>No date gaps found.</b><br>Checked '+reservations.length+' reservation'+(reservations.length===1?'':'s')+'; '+readable+' had readable selected pre/post-night dates.</div>';
-    modal.innerHTML='<div class="dateGapBox" role="dialog" aria-modal="true" aria-labelledby="dateGapTitle"><div class="dateGapHead"><div><div class="kicker">Reservation safety check</div><h2 id="dateGapTitle">Date Gaps</h2></div><button class="dateGapClose" aria-label="Close">×</button></div><p class="dateGapHelp">Flags only non-consecutive manually selected pre- or post-night dates. A continuous stay is not flagged.</p>'+body+'</div>';
+    const body=results.length?'<div class="dateGapIntro warn"><b>'+results.length+'</b> reservation'+(results.length===1?'':'s')+' need'+(results.length===1?'s':'')+' a date check. Only a missing day between selected night dates is shown.</div><div class="dateGapList">'+results.map(({record,dates,missing})=>'<article class="dateGapRow"><div><b>Rez #'+escGap(record.rez_id)+'</b><span>'+escGap(guestNames(record.rez_id))+'</span><small>Selected: '+escGap(dates.map(displayDate).join(" · "))+'</small><small class="missing">Missing: '+escGap(missing.map(displayDate).join(" · "))+'</small></div><button data-open-gap-rez="'+escGap(record.rez_id)+'">Open</button></article>').join("")+'</div>':'<div class="dateGapIntro ok"><b>No date gaps found.</b><br>Checked '+reservations.length+' reservation'+(reservations.length===1?'':'s')+'; '+readable+' had readable stored night-date selection'+(readable===1?'':'s')+'.</div>';
+    modal.innerHTML='<div class="dateGapBox" role="dialog" aria-modal="true" aria-labelledby="dateGapTitle"><div class="dateGapHead"><div><div class="kicker">Reservation safety check</div><h2 id="dateGapTitle">Date Gaps</h2></div><button class="dateGapClose" aria-label="Close">×</button></div><p class="dateGapHelp">Checks every stored pre- and post-night date within each reservation. A continuous stay is not flagged, and there is no fixed event-date limit.</p>'+body+'</div>';
     document.body.appendChild(modal);
     modal.querySelector(".dateGapClose").onclick=closeModal;
     modal.addEventListener("click",event=>{if(event.target===modal)closeModal();const button=event.target.closest("[data-open-gap-rez]");if(!button)return;selectedRez=String(button.dataset.openGapRez);selectedGuest=guests.find(g=>String(g.rez_id)===selectedRez)?.id||null;closeModal();renderAll();document.getElementById("workspace")?.scrollIntoView({behavior:"smooth",block:"start"});setStatus("Opened reservation #"+selectedRez+" to review its missing night.","warn");});
