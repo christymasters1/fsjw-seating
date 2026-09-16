@@ -1185,7 +1185,10 @@ function renderDetails() {
     ? String(record.night_count) + " night" + (String(record.night_count) === "1" ? "" : "s")
     : "Not available";
   const roomInventory = roomInventoryDetails(record);
-  const detailCategoryName = record?.category_name || roomInventory?.categoryName || "Not available";
+  // RezMagic's PrimaryCategoryName may be the event/package title (for example,
+  // "The Florida Smooth Jazz Weekend 2026"), not the booked hotel room. The
+  // category code is the reliable room identifier, so prefer its known room name.
+  const detailRoomType = roomInventory?.categoryName || record?.category_name || "Not available";
   const detailOccupancy = record?.occupancy_number !== null && record?.occupancy_number !== undefined && record?.occupancy_number !== ""
     ? String(record.occupancy_number)
     : (roomInventory?.occupancy ? String(roomInventory.occupancy) : (gs.length ? String(gs.length) : "Not available"));
@@ -1193,7 +1196,7 @@ function renderDetails() {
   host.innerHTML =
     '<div class="rightRezGuestName"><span>Viewing Guest</span><b>' + esc(selectedGuestDisplayName(gs)) + '</b></div>' +
     '<div class="rightRezGrid">' +
-      reservationDetailField("Category Name", detailCategoryName) +
+      reservationDetailField("Room Type", detailRoomType) +
       reservationDetailField("Category Code", record?.category_code || "Not available") +
       reservationDetailField("Occupancy #", detailOccupancy) +
       reservationDetailField("Seat Upgrade Fee", record?.seat_upgrade_status || "Not available") +
