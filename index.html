@@ -456,7 +456,7 @@ button[disabled]{opacity:.58;cursor:not-allowed}
       <div class="queuehead">
         <div>
           <h2>RezMagic Updates Queue</h2>
-          <div class="small">This is the permanent change ledger. New CSV files verify this list; they never erase it. “Awaiting Verification” means the change was entered into RezMagic and is waiting for the next CSV to confirm it.</div>
+          <div class="small">This queue is only for seat changes that still need to be entered in RezMagic. Each imported RezMagic CSV is authoritative and automatically clears any resolved or superseded seating updates.</div>
         </div>
       </div>
       <div class="queuefilters">
@@ -1174,8 +1174,9 @@ function renderDetails() {
   const guestButtons = gs.map(g => {
     const assignment = assignmentForGuest(g.id);
     const active = String(selectedGuest) === String(g.id) ? " active" : "";
+    const moving = latestOpenChange(g.id)?.status === "needs_update" || latestOpenChange(g.id)?.status === "entered";
     return '<button class="guestChoice' + active + '" data-guest="' + esc(g.id) + '">' +
-      (active ? '<span class="movingTag">MOVING</span>' : '') +
+      (moving ? '<span class="movingTag">MOVING</span>' : '') +
       esc(g.guest_name) + '<br><span class="small">' +
       esc(assignment?.seat_id || "Unassigned") + '</span></button>';
   }).join("");
@@ -1394,7 +1395,10 @@ function createTTItem(a, b, sameSeats, linkedSeats, movingSeat) {
 
 function renderMap() {
   const sameSeats = new Set(selectedRez ? rezSeats(selectedRez).map(a => String(a.seat_id)) : []);
-  const movingSeat = selectedGuest ? assignmentForGuest(selectedGuest)?.seat_id || null : null;
+  const selectedChange = selectedGuest ? latestOpenChange(selectedGuest) : null;
+  const movingSeat = selectedChange && (selectedChange.status === "needs_update" || selectedChange.status === "entered")
+    ? selectedChange.working_seat || assignmentForGuest(selectedGuest)?.seat_id || null
+    : null;
   const linkedRez = selectedRez ? linkedRezIds(selectedRez) : [];
   const linkedSeats = new Set(linkedRez.flatMap(id => rezSeats(id)).map(a => String(a.seat_id)));
 
@@ -1868,6 +1872,58 @@ async function createImportConflict({rezId, guest, importedSeat, workingSeat, re
   );
 }
 
+
+function importedSeatSnapshot(rows) {
+  const byGuest = new Map();
+  const bySeat = new Map();
+  for (const row of rows) {
+    const guestKey = String(row.rez_id) + "\u0000" + String(row.guest_name).trim().toLowerCase();
+    const seatKey = String(row.seat).trim().toUpperCase();
+    if (byGuest.has(guestKey)) throw new Error("The RezMagic CSV lists " + row.guest_name + " more than once with a seat.");
+    if (bySeat.has(seatKey)) throw new Error("The RezMagic CSV assigns " + seatKey + " to more than one guest.");
+    byGuest.set(guestKey, {...row, seat:seatKey});
+    bySeat.set(seatKey, row);
+  }
+  return {byGuest, bySeat};
+}
+
+async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
+  const snapshot = importedSeatSnapshot(rows);
+  const importedGuests = guests.filter(g => importedRezIds.has(String(g.rez_id)));
+  const guestByKey = new Map(importedGuests.map(g => [String(g.rez_id) + "\u0000" + String(g.guest_name).trim().toLowerCase(), g]));
+  const desired = [];
+  for (const [guestKey, row] of snapshot.byGuest) {
+    const guest = guestByKey.get(guestKey);
+    if (!guest) throw new Error("RezMagic seat row could not be matched to a guest: " + row.guest_name + " on reservation #" + row.rez_id + ".");
+    desired.push({guest, row});
+  }
+
+  // Release the prior assignments before writing the complete RezMagic snapshot. This
+  // makes swaps and moves deterministic: the CSV wins over yesterday's working seats.
+  const importedGuestIds = new Set(importedGuests.map(g => String(g.id)));
+  const claimedSeats = new Set(desired.map(x => String(x.row.seat)));
+  const toRelease = assignments.filter(a => importedGuestIds.has(String(a.guest_id)) || claimedSeats.has(String(a.seat_id)));
+  for (const assignment of toRelease) {
+    await api("seat_assignments?id=eq." + encodeURIComponent(assignment.id), {method:"DELETE", headers:{Prefer:"return=minimal"}});
+  }
+  for (const {guest, row} of desired) {
+    await api("seat_assignments", {
+      method:"POST", headers:{Prefer:"return=minimal"},
+      body:JSON.stringify({seat_id:row.seat, rez_id:row.rez_id, guest_id:guest.id, guest_name:guest.guest_name, rezmagic_seat:row.seat, source_seat:row.seat, working_seat:row.seat, sync_status:"synced", updated_at:now})
+    });
+  }
+
+  // The CSV is the source of truth, not a second opinion about the working queue.
+  const openChanges = rezChanges.filter(c => importedGuestIds.has(String(c.guest_id)) && OPEN_CHANGE_STATUSES.has(c.status));
+  for (const change of openChanges) {
+    await api("rezmagic_changes?id=eq." + encodeURIComponent(change.id), {
+      method:"PATCH", headers:{Prefer:"return=minimal"},
+      body:JSON.stringify({status:"synced", verified_at:now, updated_at:now})
+    });
+  }
+  return {assigned:desired.length, cleared:openChanges.length, released:toRelease.length};
+}
+
 async function executeImport() {
   const p = pendingImport;
   if (!p || isImporting) return;
@@ -1918,159 +1974,8 @@ async function executeImport() {
 
     await loadAll({quiet:true});
 
-    let verified = 0;
-    let waiting = 0;
-    let conflicts = 0;
-    let syncedExternal = 0;
-
-    for (const row of p.seatRows) {
-      const guest = guests.find(g =>
-        String(g.rez_id) === String(row.rez_id) &&
-        String(g.guest_name) === String(row.guest_name)
-      );
-      if (!guest) continue;
-
-      const assignment = assignmentForGuest(guest.id);
-      const openChange = latestOpenChange(guest.id);
-
-      if (!assignment) {
-        const collision = assignments.find(a => String(a.seat_id) === String(row.seat));
-        if (collision && String(collision.guest_id) !== String(guest.id)) {
-          await createImportConflict({
-            rezId:row.rez_id,
-            guest,
-            importedSeat:row.seat,
-            workingSeat:null,
-            reason:"Imported RezMagic seat is already assigned to another guest in the seating manager."
-          });
-          conflicts++;
-          continue;
-        }
-
-        await api("seat_assignments", {
-          method:"POST",
-          headers:{Prefer:"return=minimal"},
-          body:JSON.stringify({
-            seat_id:row.seat,
-            rez_id:row.rez_id,
-            guest_id:guest.id,
-            guest_name:guest.guest_name,
-            rezmagic_seat:row.seat,
-            source_seat:row.seat,
-            working_seat:row.seat,
-            sync_status:"synced"
-          })
-        });
-        syncedExternal++;
-        continue;
-      }
-
-      if (openChange) {
-        const working = openChange.working_seat || assignment.working_seat || assignment.seat_id;
-        const prior = openChange.rezmagic_seat ?? assignment.source_seat ?? assignment.rezmagic_seat ?? null;
-
-        if (String(row.seat) === String(working)) {
-          await api("rezmagic_changes?id=eq." + encodeURIComponent(openChange.id), {
-            method:"PATCH",
-            headers:{Prefer:"return=minimal"},
-            body:JSON.stringify({
-              status:"synced",
-              verified_at:new Date().toISOString(),
-              updated_at:new Date().toISOString()
-            })
-          });
-          await api("seat_assignments?id=eq." + encodeURIComponent(assignment.id), {
-            method:"PATCH",
-            headers:{Prefer:"return=minimal"},
-            body:JSON.stringify({
-              seat_id:row.seat,
-              rezmagic_seat:row.seat,
-              source_seat:row.seat,
-              working_seat:row.seat,
-              sync_status:"synced",
-              updated_at:new Date().toISOString()
-            })
-          });
-          await audit(
-            "rezmagic_change_verified",
-            "reservation",
-            row.rez_id,
-            {rezmagic_seat:prior, working_seat:working},
-            {verified_seat:row.seat, change_id:openChange.id}
-          );
-          verified++;
-        } else if (String(row.seat) === String(prior ?? "")) {
-          // RezMagic still shows the original seat. Keep our working seat and queue status.
-          waiting++;
-        } else {
-          await api("rezmagic_changes?id=eq." + encodeURIComponent(openChange.id), {
-            method:"PATCH",
-            headers:{Prefer:"return=minimal"},
-            body:JSON.stringify({
-              status:"conflict",
-              updated_at:new Date().toISOString()
-            })
-          });
-          await audit(
-            "rezmagic_change_conflict",
-            "reservation",
-            row.rez_id,
-            {expected_original:prior, expected_working:working},
-            {rezmagic_imported:row.seat, change_id:openChange.id}
-          );
-          conflicts++;
-        }
-        continue;
-      }
-
-      if (String(assignment.seat_id) === String(row.seat)) {
-        if (String(assignment.rezmagic_seat || "") !== String(row.seat) || assignment.sync_status !== "synced") {
-          await api("seat_assignments?id=eq." + encodeURIComponent(assignment.id), {
-            method:"PATCH",
-            headers:{Prefer:"return=minimal"},
-            body:JSON.stringify({
-              rezmagic_seat:row.seat,
-              source_seat:row.seat,
-              working_seat:row.seat,
-              sync_status:"synced",
-              updated_at:new Date().toISOString()
-            })
-          });
-        }
-        continue;
-      }
-
-      const collision = assignments.find(a =>
-        String(a.seat_id) === String(row.seat) &&
-        String(a.guest_id) !== String(guest.id)
-      );
-      if (collision) {
-        await createImportConflict({
-          rezId:row.rez_id,
-          guest,
-          importedSeat:row.seat,
-          workingSeat:assignment.seat_id,
-          reason:"RezMagic changed this guest to a seat currently held by another guest in the seating manager."
-        });
-        conflicts++;
-        continue;
-      }
-
-      // No local open change exists, so RezMagic is authoritative for this guest.
-      await api("seat_assignments?id=eq." + encodeURIComponent(assignment.id), {
-        method:"PATCH",
-        headers:{Prefer:"return=minimal"},
-        body:JSON.stringify({
-          seat_id:row.seat,
-          rezmagic_seat:row.seat,
-          source_seat:row.seat,
-          working_seat:row.seat,
-          sync_status:"synced",
-          updated_at:new Date().toISOString()
-        })
-      });
-      syncedExternal++;
-    }
+    const importedRezIds = new Set(p.rezVals.map(v => String(v.rez_id)));
+    const reconciliation = await applyAuthoritativeRezMagicSeats(p.seatRows, importedRezIds, now);
 
     await audit(
       "rezmagic_csv_import",
@@ -2083,10 +1988,11 @@ async function executeImport() {
         privacy_held:p.held.length,
         sensitive_columns_discarded:p.discardedSensitiveHeaders.length,
         raw_csv_stored:false,
-        verified_changes:verified,
-        still_waiting:waiting,
-        conflicts,
-        external_seat_updates:syncedExternal
+        source_of_truth:"RezMagic CSV",
+        assigned_seats:reconciliation.assigned,
+        released_assignments:reconciliation.released,
+        cleared_queue_items:reconciliation.cleared,
+        conflicts:0
       }
     );
 
@@ -2094,11 +2000,10 @@ async function executeImport() {
     await saveSnapshot("Auto · After RezMagic import · " + new Date().toLocaleString());
 
     setStatus(
-      "RezMagic import complete. " +
-      verified + " verified · " +
-      waiting + " still awaiting verification · " +
-      conflicts + " conflict(s). Raw CSV was not stored.",
-      conflicts ? "warn" : "ok"
+      "RezMagic import complete. CSV seating is now the source of truth: " +
+      reconciliation.assigned + " assigned · " +
+      reconciliation.cleared + " queue item(s) cleared. No manual review created. Raw CSV was not stored.",
+      "ok"
     );
   } catch (error) {
     setStatus("Import stopped: " + error.message + ". Existing queue/history was not deleted.", "warn");
