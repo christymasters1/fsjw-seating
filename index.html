@@ -346,7 +346,6 @@ button[disabled]{opacity:.58;cursor:not-allowed}
       </div>
       <div class="actions">
         <label class="fileAction primary">Import RezMagic CSV<input id="csvfile" type="file" accept=".csv,text/csv" hidden></label>
-        <button id="dateGaps">Date Gaps</button>
         <button id="refresh">Refresh Shared Data</button>
         <button id="snapshot">Save Snapshot</button>
         <button id="changes">RezMagic Updates <span id="changeBadge" class="badge">0</span></button>
@@ -3552,6 +3551,30 @@ setInterval(() => {
     .dateGapBox{width:min(720px,100%);max-height:min(700px,calc(100vh - 36px));overflow:auto;background:#fff;border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.25);padding:18px}
     .dateGapHead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.dateGapHead h2{margin:2px 0 0;color:var(--navy);font-size:22px}.dateGapClose{border:0;background:transparent;color:var(--navy);font-size:28px;line-height:1;padding:0 3px}.dateGapHelp{margin:10px 0 14px;color:var(--muted);font-size:11px;line-height:1.45}.dateGapIntro{border-radius:8px;padding:12px;font-size:12px;line-height:1.45}.dateGapIntro.warn{background:#fff3d8;color:#725000}.dateGapIntro.ok{background:#e9f7ef;color:#17653d}.dateGapList{display:flex;flex-direction:column;gap:8px;margin-top:10px}.dateGapRow{display:flex;justify-content:space-between;gap:12px;align-items:center;border:1px solid var(--line);border-left:4px solid #c18a13;border-radius:8px;padding:10px}.dateGapRow b,.dateGapRow span,.dateGapRow small{display:block}.dateGapRow b{color:var(--navy);font-size:12px}.dateGapRow span{margin-top:3px;font-size:11px}.dateGapRow small{margin-top:4px;color:var(--muted);font-size:10px}.dateGapRow small.missing{color:#a91d2c;font-weight:800}.dateGapRow button{flex:none;border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 9px;color:var(--navy);font-size:10px;font-weight:800}
   `;document.head.appendChild(style);
+})();
+</script>
+<script>
+"use strict";
+/* Keep the seating-manager header organized by job, even as optional tools load. */
+(function(){
+  function arrangeHeaderActions(){
+    const actions=document.querySelector(".actions");if(!actions)return;
+    actions.querySelectorAll(".headerActionBreak").forEach(node=>node.remove());
+    const loadBreak=document.createElement("span");loadBreak.className="headerActionBreak loadBreak";
+    const workBreak=document.createElement("span");workBreak.className="headerActionBreak workBreak";
+    const refresh=document.getElementById("refresh"),changes=document.getElementById("changes");
+    if(refresh)refresh.insertAdjacentElement("afterend",loadBreak);
+    if(changes)changes.insertAdjacentElement("afterend",workBreak);
+  }
+  const css=document.createElement("style");css.textContent=`
+    .header{align-items:flex-start;gap:22px}.brand{flex:0 0 255px}.actions{flex:1;display:flex;align-items:center;align-content:flex-start;gap:10px 10px;padding:14px 0 2px}.headerActionBreak{flex-basis:100%;height:0;pointer-events:none}.loadBreak{order:15}.workBreak{order:25}
+    .actions>.fileAction:first-child{order:10}.actions>label:has(#availabilityCsvFile){order:11}.actions>#refresh{order:12}.actions>.workModeBtn{order:20}.actions>#changes{order:21}.actions>#undoTopBtn{order:30}.actions>#snapshot{order:31}.actions>#import2025Btn{order:32}.actions>#signout{order:33}
+    .actions>#changes,.actions>.workModeBtn{border-color:#ccd8f3;background:#f7f9ff}.actions>#undoTopBtn,.actions>#snapshot,.actions>#import2025Btn{background:#fff}.actions>#signout{margin-left:8px}
+    @media(max-width:900px){.header{gap:10px}.brand{flex-basis:auto}.actions{padding-top:4px}.headerActionBreak{display:none}.actions>#signout{margin-left:0}}
+  `;document.head.appendChild(css);
+  arrangeHeaderActions();
+  // Optional header tools load asynchronously, so arrange once more after they arrive.
+  window.setTimeout(arrangeHeaderActions,250);window.setTimeout(arrangeHeaderActions,1200);
 })();
 </script>
 </body>
