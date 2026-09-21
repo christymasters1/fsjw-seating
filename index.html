@@ -1929,37 +1929,62 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
     desired.push({guest, row});
   }
 
-  // A valid imported seat may update that guest (or release a seat that the CSV
-  // explicitly gives to someone else). Never erase a guest's current seat merely
-  // because the importer did not recognize a row: a CSV format change must not
-  // turn confirmed seats into "Unassigned."
-  const importedGuestIds = new Set(desired.map(x => String(x.guest.id)));
-  const claimedSeats = new Set(desired.map(x => String(x.row.seat)));
-  const toRelease = assignments.filter(a =>
-    importedGuestIds.has(String(a.guest_id)) ||
-    claimedSeats.has(normalizeSeatId(a.seat_id) || String(a.seat_id))
-  );
-  for (const assignment of toRelease) {
-    await api("seat_assignments?id=eq." + encodeURIComponent(assignment.id), {method:"DELETE", headers:{Prefer:"return=minimal"}});
-  }
+  // Imports are deliberately non-destructive. A verified CSV row can add a
+  // missing assignment or update a safely open seat, but a partial/interrupted
+  // import can never erase a confirmed seat already in the shared manager.
+  const assignmentByGuest = new Map(assignments.map(a => [String(a.guest_id), a]));
+  const assignmentBySeat = new Map(assignments.map(a => [normalizeSeatId(a.seat_id) || String(a.seat_id), a]));
+  let added = 0;
+  let updated = 0;
+  let retained = 0;
+  let blocked = 0;
+
   for (const {guest, row} of desired) {
-    await api("seat_assignments", {
-      method:"POST", headers:{Prefer:"return=minimal"},
-      body:JSON.stringify({seat_id:row.seat, rez_id:row.rez_id, guest_id:guest.id, guest_name:guest.guest_name, rezmagic_seat:row.seat, source_seat:row.seat, working_seat:row.seat, sync_status:"synced", updated_at:now})
-    });
+    const targetSeat = normalizeSeatId(row.seat);
+    const current = assignmentByGuest.get(String(guest.id));
+    const occupant = assignmentBySeat.get(targetSeat);
+
+    if (current && (normalizeSeatId(current.seat_id) || String(current.seat_id)) === targetSeat) {
+      // Normalize legacy identifiers such as A4 to A04 without changing occupancy.
+      if (String(current.seat_id) !== targetSeat || current.sync_status !== "synced") {
+        await api("seat_assignments?id=eq." + encodeURIComponent(current.id), {
+          method:"PATCH", headers:{Prefer:"return=minimal"},
+          body:JSON.stringify({seat_id:targetSeat, rezmagic_seat:targetSeat, source_seat:targetSeat, working_seat:targetSeat, sync_status:"synced", updated_at:now})
+        });
+      }
+      retained++;
+      continue;
+    }
+
+    if (!current && !occupant) {
+      await api("seat_assignments", {
+        method:"POST", headers:{Prefer:"return=minimal"},
+        body:JSON.stringify({seat_id:targetSeat, rez_id:row.rez_id, guest_id:guest.id, guest_name:guest.guest_name, rezmagic_seat:targetSeat, source_seat:targetSeat, working_seat:targetSeat, sync_status:"synced", updated_at:now})
+      });
+      assignmentByGuest.set(String(guest.id), {guest_id:guest.id, seat_id:targetSeat});
+      assignmentBySeat.set(targetSeat, {guest_id:guest.id, seat_id:targetSeat});
+      added++;
+      continue;
+    }
+
+    if (current && (!occupant || String(occupant.guest_id) === String(guest.id))) {
+      const priorSeat = normalizeSeatId(current.seat_id) || String(current.seat_id);
+      await api("seat_assignments?id=eq." + encodeURIComponent(current.id), {
+        method:"PATCH", headers:{Prefer:"return=minimal"},
+        body:JSON.stringify({seat_id:targetSeat, rezmagic_seat:targetSeat, source_seat:targetSeat, working_seat:targetSeat, sync_status:"synced", updated_at:now})
+      });
+      assignmentBySeat.delete(priorSeat);
+      assignmentBySeat.set(targetSeat, current);
+      updated++;
+      continue;
+    }
+
+    // The CSV has been fully validated, but a source seat that is still occupied
+    // locally is held rather than deleting either guest during an import.
+    blocked++;
   }
 
-  // The CSV is the source of truth, not a second opinion about the working queue.
-  const openChanges = rezChanges.filter(c => importedGuestIds.has(String(c.guest_id)) && OPEN_CHANGE_STATUSES.has(c.status));
-  for (const change of openChanges) {
-    await api("rezmagic_changes?id=eq." + encodeURIComponent(change.id), {
-      method:"PATCH", headers:{Prefer:"return=minimal"},
-      body:JSON.stringify({status:"synced", verified_at:now, updated_at:now})
-    });
-  }
-  const preserved = importedGuests.filter(g => !importedGuestIds.has(String(g.id)))
-    .filter(g => assignments.some(a => String(a.guest_id) === String(g.id))).length;
-  return {assigned:desired.length, cleared:openChanges.length, released:toRelease.length, preserved};
+  return {assigned:added + updated, retained, blocked, cleared:0, released:0, preserved:retained};
 }
 
 async function executeImport() {
@@ -2028,10 +2053,10 @@ async function executeImport() {
         raw_csv_stored:false,
         source_of_truth:"RezMagic CSV",
         assigned_seats:reconciliation.assigned,
-        released_assignments:reconciliation.released,
-        preserved_assignments:reconciliation.preserved,
-        cleared_queue_items:reconciliation.cleared,
-        conflicts:0
+        added_or_updated_assignments:reconciliation.assigned,
+        retained_assignments:reconciliation.retained,
+        blocked_replacements:reconciliation.blocked,
+        raw_csv_stored:false
       }
     );
 
@@ -2039,11 +2064,11 @@ async function executeImport() {
     await saveSnapshot("Auto · After RezMagic import · " + new Date().toLocaleString());
 
     setStatus(
-      "RezMagic import complete. CSV seating is now the source of truth: " +
-      reconciliation.assigned + " assigned · " +
-      reconciliation.preserved + " existing seat(s) protected because no valid replacement was found · " +
-      reconciliation.cleared + " queue item(s) cleared. Raw CSV was not stored.",
-      "ok"
+      "RezMagic import complete. " +
+      reconciliation.assigned + " seat(s) added or safely updated · " +
+      reconciliation.retained + " verified seat(s) retained · " +
+      reconciliation.blocked + " occupied replacement(s) held. Existing seats were never deleted.",
+      reconciliation.blocked ? "warn" : "ok"
     );
   } catch (error) {
     setStatus("Import stopped: " + error.message + ". Existing queue/history was not deleted.", "warn");
