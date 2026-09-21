@@ -1651,7 +1651,18 @@ function parseCSV(text) {
 }
 
 function looksLikeSeat(value) {
-  return /^[A-HJ-NP-TV-Z]{1,2}\d{2}$/.test(value) || /^TT\d{2}$/.test(value);
+  return Boolean(normalizeSeatId(value));
+}
+
+// RezMagic sometimes exports seat numbers without the leading zero (A4 instead
+// of A04). Store one canonical form so imports, the map, and existing records
+// always compare the same identifier.
+function normalizeSeatId(value) {
+  const raw = String(value || "").trim().toUpperCase().replace(/\s+/g, "");
+  const table = raw.match(/^TT(\d{1,2})$/);
+  if (table) return "TT" + table[1].padStart(2, "0");
+  const seat = raw.match(/^([A-HJ-NP-TV-Z]{1,2})(\d{1,2})$/);
+  return seat ? seat[1] + seat[2].padStart(2, "0") : null;
 }
 
 async function preflightCSV(file) {
@@ -1745,6 +1756,7 @@ async function preflightCSV(file) {
       }
 
       const addon = String(source.AddOnCategoryName || "").trim();
+      const normalizedSeat = normalizeSeatId(addon);
       const addonProduct = String(source.AddOnProductName || "").trim();
       if (addon && !looksLikeSeat(addon)) {
         const cleaned = privacyClean(addon);
@@ -1764,8 +1776,8 @@ async function preflightCSV(file) {
         }
       }
 
-      if (addon && looksLikeSeat(addon) && guestName) {
-        seatRows.push({rez_id:rezId, guest_name:guestName, seat:addon});
+      if (normalizedSeat && guestName) {
+        seatRows.push({rez_id:rezId, guest_name:guestName, seat:normalizedSeat});
       }
     }
 
@@ -1917,11 +1929,16 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
     desired.push({guest, row});
   }
 
-  // Release the prior assignments before writing the complete RezMagic snapshot. This
-  // makes swaps and moves deterministic: the CSV wins over yesterday's working seats.
-  const importedGuestIds = new Set(importedGuests.map(g => String(g.id)));
+  // A valid imported seat may update that guest (or release a seat that the CSV
+  // explicitly gives to someone else). Never erase a guest's current seat merely
+  // because the importer did not recognize a row: a CSV format change must not
+  // turn confirmed seats into "Unassigned."
+  const importedGuestIds = new Set(desired.map(x => String(x.guest.id)));
   const claimedSeats = new Set(desired.map(x => String(x.row.seat)));
-  const toRelease = assignments.filter(a => importedGuestIds.has(String(a.guest_id)) || claimedSeats.has(String(a.seat_id)));
+  const toRelease = assignments.filter(a =>
+    importedGuestIds.has(String(a.guest_id)) ||
+    claimedSeats.has(normalizeSeatId(a.seat_id) || String(a.seat_id))
+  );
   for (const assignment of toRelease) {
     await api("seat_assignments?id=eq." + encodeURIComponent(assignment.id), {method:"DELETE", headers:{Prefer:"return=minimal"}});
   }
@@ -1940,7 +1957,9 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
       body:JSON.stringify({status:"synced", verified_at:now, updated_at:now})
     });
   }
-  return {assigned:desired.length, cleared:openChanges.length, released:toRelease.length};
+  const preserved = importedGuests.filter(g => !importedGuestIds.has(String(g.id)))
+    .filter(g => assignments.some(a => String(a.guest_id) === String(g.id))).length;
+  return {assigned:desired.length, cleared:openChanges.length, released:toRelease.length, preserved};
 }
 
 async function executeImport() {
@@ -2010,6 +2029,7 @@ async function executeImport() {
         source_of_truth:"RezMagic CSV",
         assigned_seats:reconciliation.assigned,
         released_assignments:reconciliation.released,
+        preserved_assignments:reconciliation.preserved,
         cleared_queue_items:reconciliation.cleared,
         conflicts:0
       }
@@ -2021,7 +2041,8 @@ async function executeImport() {
     setStatus(
       "RezMagic import complete. CSV seating is now the source of truth: " +
       reconciliation.assigned + " assigned · " +
-      reconciliation.cleared + " queue item(s) cleared. No manual review created. Raw CSV was not stored.",
+      reconciliation.preserved + " existing seat(s) protected because no valid replacement was found · " +
+      reconciliation.cleared + " queue item(s) cleared. Raw CSV was not stored.",
       "ok"
     );
   } catch (error) {
