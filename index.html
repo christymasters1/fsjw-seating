@@ -1923,68 +1923,22 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
   const importedGuests = guests.filter(g => importedRezIds.has(String(g.rez_id)));
   const guestByKey = new Map(importedGuests.map(g => [String(g.rez_id) + "\u0000" + String(g.guest_name).trim().toLowerCase(), g]));
   const desired = [];
+
   for (const [guestKey, row] of snapshot.byGuest) {
     const guest = guestByKey.get(guestKey);
     if (!guest) throw new Error("RezMagic seat row could not be matched to a guest: " + row.guest_name + " on reservation #" + row.rez_id + ".");
-    desired.push({guest, row});
+    desired.push({rez_id:String(row.rez_id), guest_name:guest.guest_name, seat_id:normalizeSeatId(row.seat)});
   }
 
-  // Imports are deliberately non-destructive. A verified CSV row can add a
-  // missing assignment or update a safely open seat, but a partial/interrupted
-  // import can never erase a confirmed seat already in the shared manager.
-  const assignmentByGuest = new Map(assignments.map(a => [String(a.guest_id), a]));
-  const assignmentBySeat = new Map(assignments.map(a => [normalizeSeatId(a.seat_id) || String(a.seat_id), a]));
-  let added = 0;
-  let updated = 0;
-  let retained = 0;
-  let blocked = 0;
-
-  for (const {guest, row} of desired) {
-    const targetSeat = normalizeSeatId(row.seat);
-    const current = assignmentByGuest.get(String(guest.id));
-    const occupant = assignmentBySeat.get(targetSeat);
-
-    if (current && (normalizeSeatId(current.seat_id) || String(current.seat_id)) === targetSeat) {
-      // Normalize legacy identifiers such as A4 to A04 without changing occupancy.
-      if (String(current.seat_id) !== targetSeat || current.sync_status !== "synced") {
-        await api("seat_assignments?id=eq." + encodeURIComponent(current.id), {
-          method:"PATCH", headers:{Prefer:"return=minimal"},
-          body:JSON.stringify({seat_id:targetSeat, rezmagic_seat:targetSeat, source_seat:targetSeat, working_seat:targetSeat, sync_status:"synced", updated_at:now})
-        });
-      }
-      retained++;
-      continue;
-    }
-
-    if (!current && !occupant) {
-      await api("seat_assignments", {
-        method:"POST", headers:{Prefer:"return=minimal"},
-        body:JSON.stringify({seat_id:targetSeat, rez_id:row.rez_id, guest_id:guest.id, guest_name:guest.guest_name, rezmagic_seat:targetSeat, source_seat:targetSeat, working_seat:targetSeat, sync_status:"synced", updated_at:now})
-      });
-      assignmentByGuest.set(String(guest.id), {guest_id:guest.id, seat_id:targetSeat});
-      assignmentBySeat.set(targetSeat, {guest_id:guest.id, seat_id:targetSeat});
-      added++;
-      continue;
-    }
-
-    if (current && (!occupant || String(occupant.guest_id) === String(guest.id))) {
-      const priorSeat = normalizeSeatId(current.seat_id) || String(current.seat_id);
-      await api("seat_assignments?id=eq." + encodeURIComponent(current.id), {
-        method:"PATCH", headers:{Prefer:"return=minimal"},
-        body:JSON.stringify({seat_id:targetSeat, rezmagic_seat:targetSeat, source_seat:targetSeat, working_seat:targetSeat, sync_status:"synced", updated_at:now})
-      });
-      assignmentBySeat.delete(priorSeat);
-      assignmentBySeat.set(targetSeat, current);
-      updated++;
-      continue;
-    }
-
-    // The CSV has been fully validated, but a source seat that is still occupied
-    // locally is held rather than deleting either guest during an import.
-    blocked++;
-  }
-
-  return {assigned:added + updated, retained, blocked, cleared:0, released:0, preserved:retained};
+  // The complete, validated ResMagic snapshot is applied inside one Postgres
+  // transaction. It either replaces every seat or changes nothing at all.
+  const result = await api("rpc/replace_rezmagic_seat_snapshot", {
+    method:"POST",
+    headers:{Prefer:"return=representation"},
+    body:JSON.stringify({p_rows:desired})
+  });
+  const assigned = Number(result?.[0]?.assigned_count || desired.length);
+  return {assigned, cleared:0, released:0, preserved:0};
 }
 
 async function executeImport() {
@@ -2053,9 +2007,9 @@ async function executeImport() {
         raw_csv_stored:false,
         source_of_truth:"RezMagic CSV",
         assigned_seats:reconciliation.assigned,
-        added_or_updated_assignments:reconciliation.assigned,
-        retained_assignments:reconciliation.retained,
-        blocked_replacements:reconciliation.blocked,
+        source_of_truth:"RezMagic CSV",
+        assigned_seats:reconciliation.assigned,
+        atomic_snapshot_refresh:true,
         raw_csv_stored:false
       }
     );
@@ -2065,10 +2019,9 @@ async function executeImport() {
 
     setStatus(
       "RezMagic import complete. " +
-      reconciliation.assigned + " seat(s) added or safely updated · " +
-      reconciliation.retained + " verified seat(s) retained · " +
-      reconciliation.blocked + " occupied replacement(s) held. Existing seats were never deleted.",
-      reconciliation.blocked ? "warn" : "ok"
+      reconciliation.assigned + " assignments refreshed from the complete RezMagic CSV. " +
+      "The database applied the full seat map atomically.",
+      "ok"
     );
   } catch (error) {
     setStatus("Import stopped: " + error.message + ". Existing queue/history was not deleted.", "warn");
