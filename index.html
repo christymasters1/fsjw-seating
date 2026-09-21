@@ -75,8 +75,8 @@ body{margin:0;font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);
 .seat.blue{background:var(--blue-seat);border-color:#9aace6}
 .seat.gold{background:var(--gold-seat);border-color:#d9c566}
 .seat.occ{background:var(--occupied)!important;color:#fff!important;border-color:#7e858c!important}
-.seat.same{outline:3px solid var(--same);outline-offset:1px}
-.seat.linked{outline:3px solid var(--linked);outline-offset:1px}
+.seat.same{outline:3px solid var(--same);outline-offset:1px;box-shadow:0 0 0 3px rgba(215,47,63,.2);animation:seatFocus 1.2s ease-in-out 3}
+.seat.linked{outline:3px solid var(--linked);outline-offset:1px;box-shadow:0 0 0 3px rgba(124,77,180,.18)}
 .gap{width:24px;height:24px}
 
 .ttarea{border-top:1px solid var(--line);margin-top:14px;padding-top:12px;min-width:1020px}
@@ -90,8 +90,9 @@ body{margin:0;font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);
 .ttpair{display:flex;gap:4px;justify-content:center;margin-bottom:3px}
 .ttseat{width:24px;height:24px;border-radius:4px;border:1px solid #d9c566;background:var(--gold-seat);font-size:8px}
 .ttseat.occ{background:var(--occupied);color:#fff;border-color:#7e858c}
-.ttseat.same{outline:3px solid var(--same);outline-offset:1px}
-.ttseat.linked{outline:3px solid var(--linked);outline-offset:1px}
+.ttseat.same{outline:3px solid var(--same);outline-offset:1px;box-shadow:0 0 0 3px rgba(215,47,63,.2);animation:seatFocus 1.2s ease-in-out 3}
+.ttseat.linked{outline:3px solid var(--linked);outline-offset:1px;box-shadow:0 0 0 3px rgba(124,77,180,.18)}
+@keyframes seatFocus{50%{transform:scale(1.18);filter:brightness(.9)}}
 .ttcircle{width:44px;height:44px;border:2px solid var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;background:var(--navy);color:#fff}
 .ttcenter{min-height:1px}
 
@@ -449,7 +450,6 @@ button[disabled]{opacity:.58;cursor:not-allowed}
       <aside class="rightbar">
         <h3>RESERVATION DETAILS</h3>
         <div id="reservationDetail" class="help">Select a reservation from the left.</div>
-
       </aside>
     </div>
 
@@ -689,6 +689,24 @@ function linkedRezIds(rezId) {
   });
 
   return [...linked].filter(id => reservations.some(r => String(r.rez_id) === String(id)));
+}
+
+// Search is an "open this reservation to work" action, not simply a list filter.
+// It deliberately leaves any queue view so the reservation detail panel, linked
+// reservations, and seat-map context are all visible together.
+function openSearchedReservation(rezId) {
+  selectedRez = String(rezId);
+  selectedGuest = rezGuests(selectedRez)[0]?.id || null;
+  requestView = "";
+  localStorage.removeItem("fsjw_work_mode");
+  renderAll();
+
+  requestAnimationFrame(() => {
+    const firstSeat = document.querySelector(".seat.same, .ttseat.same");
+    firstSeat?.scrollIntoView({behavior:"smooth", block:"nearest", inline:"center"});
+    $("workspace")?.scrollIntoView({behavior:"smooth", block:"nearest"});
+    setStatus("Opened reservation #" + selectedRez + ". Red seats are this reservation; purple seats are linked reservations.", "ok");
+  });
 }
 
 function latestOpenChange(guestId) {
@@ -1138,12 +1156,7 @@ function renderReservationList() {
       '<div class="person">' + esc(gs.map(g => g.guest_name).join(" / ") || "No guest name") + '</div>' +
       '<div class="meta">' + gs.length + ' guests · ' + seatCount + ' seats</div>';
 
-    item.addEventListener("click", () => {
-      selectedRez = id;
-      const reservationGuests = rezGuests(id);
-      selectedGuest = reservationGuests[0]?.id || null;
-      renderAll();
-    });
+    item.addEventListener("click", () => openSearchedReservation(id));
     fragment.appendChild(item);
   });
   box.appendChild(fragment);
@@ -1328,6 +1341,7 @@ function createSeat(row, number, sameSeats, linkedSeats, movingSeat) {
   const code = seatCode(row, number);
   const button = document.createElement("button");
   button.className = "seat " + (BLUE_ROWS.has(row) ? "blue" : "gold");
+  button.dataset.seatId = code;
   button.textContent = number;
 
   const occupant = assignments.find(a => String(a.seat_id) === code);
@@ -1357,6 +1371,7 @@ function createTTSeat(number, sameSeats, linkedSeats, movingSeat) {
   const code = "TT" + String(number).padStart(2,"0");
   const button = document.createElement("button");
   button.className = "ttseat";
+  button.dataset.seatId = code;
   button.textContent = number;
 
   const occupant = assignments.find(a => String(a.seat_id) === code);
@@ -1923,22 +1938,43 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
   const importedGuests = guests.filter(g => importedRezIds.has(String(g.rez_id)));
   const guestByKey = new Map(importedGuests.map(g => [String(g.rez_id) + "\u0000" + String(g.guest_name).trim().toLowerCase(), g]));
   const desired = [];
-
   for (const [guestKey, row] of snapshot.byGuest) {
     const guest = guestByKey.get(guestKey);
     if (!guest) throw new Error("RezMagic seat row could not be matched to a guest: " + row.guest_name + " on reservation #" + row.rez_id + ".");
-    desired.push({rez_id:String(row.rez_id), guest_name:guest.guest_name, seat_id:normalizeSeatId(row.seat)});
+    desired.push({guest, row});
   }
 
-  // The complete, validated ResMagic snapshot is applied inside one Postgres
-  // transaction. It either replaces every seat or changes nothing at all.
-  const result = await api("rpc/replace_rezmagic_seat_snapshot", {
-    method:"POST",
-    headers:{Prefer:"return=representation"},
-    body:JSON.stringify({p_rows:desired})
-  });
-  const assigned = Number(result?.[0]?.assigned_count || desired.length);
-  return {assigned, cleared:0, released:0, preserved:0};
+  // A valid imported seat may update that guest (or release a seat that the CSV
+  // explicitly gives to someone else). Never erase a guest's current seat merely
+  // because the importer did not recognize a row: a CSV format change must not
+  // turn confirmed seats into "Unassigned."
+  const importedGuestIds = new Set(desired.map(x => String(x.guest.id)));
+  const claimedSeats = new Set(desired.map(x => String(x.row.seat)));
+  const toRelease = assignments.filter(a =>
+    importedGuestIds.has(String(a.guest_id)) ||
+    claimedSeats.has(normalizeSeatId(a.seat_id) || String(a.seat_id))
+  );
+  for (const assignment of toRelease) {
+    await api("seat_assignments?id=eq." + encodeURIComponent(assignment.id), {method:"DELETE", headers:{Prefer:"return=minimal"}});
+  }
+  for (const {guest, row} of desired) {
+    await api("seat_assignments", {
+      method:"POST", headers:{Prefer:"return=minimal"},
+      body:JSON.stringify({seat_id:row.seat, rez_id:row.rez_id, guest_id:guest.id, guest_name:guest.guest_name, rezmagic_seat:row.seat, source_seat:row.seat, working_seat:row.seat, sync_status:"synced", updated_at:now})
+    });
+  }
+
+  // The CSV is the source of truth, not a second opinion about the working queue.
+  const openChanges = rezChanges.filter(c => importedGuestIds.has(String(c.guest_id)) && OPEN_CHANGE_STATUSES.has(c.status));
+  for (const change of openChanges) {
+    await api("rezmagic_changes?id=eq." + encodeURIComponent(change.id), {
+      method:"PATCH", headers:{Prefer:"return=minimal"},
+      body:JSON.stringify({status:"synced", verified_at:now, updated_at:now})
+    });
+  }
+  const preserved = importedGuests.filter(g => !importedGuestIds.has(String(g.id)))
+    .filter(g => assignments.some(a => String(a.guest_id) === String(g.id))).length;
+  return {assigned:desired.length, cleared:openChanges.length, released:toRelease.length, preserved};
 }
 
 async function executeImport() {
@@ -2007,10 +2043,10 @@ async function executeImport() {
         raw_csv_stored:false,
         source_of_truth:"RezMagic CSV",
         assigned_seats:reconciliation.assigned,
-        source_of_truth:"RezMagic CSV",
-        assigned_seats:reconciliation.assigned,
-        atomic_snapshot_refresh:true,
-        raw_csv_stored:false
+        released_assignments:reconciliation.released,
+        preserved_assignments:reconciliation.preserved,
+        cleared_queue_items:reconciliation.cleared,
+        conflicts:0
       }
     );
 
@@ -2018,9 +2054,10 @@ async function executeImport() {
     await saveSnapshot("Auto · After RezMagic import · " + new Date().toLocaleString());
 
     setStatus(
-      "RezMagic import complete. " +
-      reconciliation.assigned + " assignments refreshed from the complete RezMagic CSV. " +
-      "The database applied the full seat map atomically.",
+      "RezMagic import complete. CSV seating is now the source of truth: " +
+      reconciliation.assigned + " assigned · " +
+      reconciliation.preserved + " existing seat(s) protected because no valid replacement was found · " +
+      reconciliation.cleared + " queue item(s) cleared. Raw CSV was not stored.",
       "ok"
     );
   } catch (error) {
@@ -2210,6 +2247,11 @@ function bindEvents() {
   $("refresh").addEventListener("click", () => loadAll());
   $("snapshot").addEventListener("click", manualSnapshot);
   $("search").addEventListener("input", renderReservationList);
+  $("search").addEventListener("keydown", event => {
+    if (event.key !== "Enter") return;
+    const visible = [...document.querySelectorAll("#rezlist .resitem")];
+    if (visible.length === 1) visible[0].click();
+  });
 
   $("changes").addEventListener("click", () => {
     renderChanges();
