@@ -50,6 +50,9 @@ body{margin:0;font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);
 .sidebar,.rightbar,.mapcard{background:#fff;border:1px solid var(--line);border-radius:10px}
 .sidebar{padding:10px}
 .search{width:100%;border:1px solid var(--line);border-radius:7px;padding:9px 10px;margin:8px 0 10px}
+.globalReservationSearch{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:10px;margin-top:10px;padding:9px 10px;background:#edf8f1;border:1px solid #cce9d6;border-radius:8px;box-shadow:0 5px 12px rgba(23,32,51,.08)}
+.globalReservationSearchLabel{flex:0 0 auto;font-size:10px;font-weight:900;color:#17653d;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.globalReservationSearchInput{flex:1;min-width:0;margin:0;background:#fff}
 .tabs{display:flex;border-bottom:1px solid var(--line);margin-bottom:8px}
 .tab{flex:1;text-align:center;padding:8px 4px;font-size:12px;font-weight:700;color:var(--muted)}
 .tab.active{color:var(--navy);border-bottom:3px solid var(--navy)}
@@ -353,6 +356,11 @@ button[disabled]{opacity:.58;cursor:not-allowed}
       </div>
     </div>
 
+    <section id="globalReservationSearch" class="globalReservationSearch" aria-label="Reservation search">
+      <div class="globalReservationSearchLabel">Search Guest or Reservation</div>
+      <input id="search" class="search globalReservationSearchInput" type="search" placeholder="Search by guest name or reservation #..." autocomplete="off">
+    </section>
+
     <div id="status" class="statusbar">Ready.</div>
 
 
@@ -401,8 +409,6 @@ button[disabled]{opacity:.58;cursor:not-allowed}
 
     <div class="workspace" id="workspace">
       <aside class="sidebar">
-        <div class="kicker">Search Guest or Reservation</div>
-        <input id="search" class="search" placeholder="Search by name or Rez #...">
         <div class="tabs"><div class="tab active">Reservations</div><div class="tab" id="resultCount">0 results</div></div>
         <div id="rezlist"></div>
       </aside>
