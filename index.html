@@ -1361,33 +1361,29 @@ function seatCode(row, number) {
   return row + String(number).padStart(2,"0");
 }
 
+function openSeatReservation(occupant, code) {
+  if (!occupant) {
+    setStatus(code + " is empty.", "ok");
+    return;
+  }
+  selectedRez = String(occupant.rez_id);
+  selectedGuest = occupant.guest_id || null;
+  renderAll();
+  setStatus("Opened " + occupant.guest_name + " · Rez #" + occupant.rez_id + " from " + code + ".", "ok");
+}
+
 function createSeat(row, number, sameSeats, linkedSeats, movingSeat) {
   const code = seatCode(row, number);
   const button = document.createElement("button");
   button.className = "seat " + (BLUE_ROWS.has(row) ? "blue" : "gold");
   button.dataset.seatId = code;
   button.textContent = number;
-
   const occupant = assignments.find(a => String(a.seat_id) === code);
   if (occupant) button.classList.add("occ");
   if (sameSeats.has(code)) button.classList.add("same");
   if (linkedSeats.has(code)) button.classList.add("linked");
-  if (String(movingSeat || "") === code) button.classList.add("moving");
-
-  button.title = occupant
-    ? code + " · " + occupant.guest_name + " · Rez #" + occupant.rez_id
-    : "Open " + code;
-
-  button.addEventListener("click", () => {
-    if (occupant) {
-      selectedRez = String(occupant.rez_id);
-      selectedGuest = occupant.guest_id || null;
-      renderAll();
-      setStatus("Opened " + occupant.guest_name + " · Rez #" + occupant.rez_id + " from " + code + ".", "ok");
-      return;
-    }
-    moveSelectedGuest(code);
-  });
+  button.title = occupant ? code + " · " + occupant.guest_name + " · Rez #" + occupant.rez_id : "Empty " + code;
+  button.addEventListener("click", () => openSeatReservation(occupant, code));
   return button;
 }
 
@@ -1397,27 +1393,12 @@ function createTTSeat(number, sameSeats, linkedSeats, movingSeat) {
   button.className = "ttseat";
   button.dataset.seatId = code;
   button.textContent = number;
-
   const occupant = assignments.find(a => String(a.seat_id) === code);
   if (occupant) button.classList.add("occ");
   if (sameSeats.has(code)) button.classList.add("same");
   if (linkedSeats.has(code)) button.classList.add("linked");
-  if (String(movingSeat || "") === code) button.classList.add("moving");
-
-  button.title = occupant
-    ? code + " · " + occupant.guest_name + " · Rez #" + occupant.rez_id
-    : "Open " + code;
-
-  button.addEventListener("click", () => {
-    if (occupant) {
-      selectedRez = String(occupant.rez_id);
-      selectedGuest = occupant.guest_id || null;
-      renderAll();
-      setStatus("Opened " + occupant.guest_name + " · Rez #" + occupant.rez_id + " from " + code + ".", "ok");
-      return;
-    }
-    moveSelectedGuest(code);
-  });
+  button.title = occupant ? code + " · " + occupant.guest_name + " · Rez #" + occupant.rez_id : "Empty " + code;
+  button.addEventListener("click", () => openSeatReservation(occupant, code));
   return button;
 }
 
@@ -1972,13 +1953,14 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
     desired.push({guest, row});
   }
 
-  // A valid imported seat may update that guest (or release a seat that the CSV
-  // explicitly gives to someone else). Never erase a guest's current seat merely
-  // because the importer did not recognize a row: a CSV format change must not
-  // turn confirmed seats into "Unassigned."
-  const importedGuestIds = new Set(desired.map(x => String(x.guest.id)));
+  // A RezMagic upload is the complete current seating snapshot for every
+  // reservation in that file. Clear their old records first, including guests
+  // who no longer have an Assigned Seating add-on, then rebuild only from the
+  // seats in this CSV. This prevents stale map assignments after every upload.
+  const importedGuestIds = new Set(importedGuests.map(g => String(g.id)));
   const claimedSeats = new Set(desired.map(x => String(x.row.seat)));
   const toRelease = assignments.filter(a =>
+    importedRezIds.has(String(a.rez_id)) ||
     importedGuestIds.has(String(a.guest_id)) ||
     claimedSeats.has(normalizeSeatId(a.seat_id) || String(a.seat_id))
   );
@@ -2000,9 +1982,7 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
       body:JSON.stringify({status:"synced", verified_at:now, updated_at:now})
     });
   }
-  const preserved = importedGuests.filter(g => !importedGuestIds.has(String(g.id)))
-    .filter(g => assignments.some(a => String(a.guest_id) === String(g.id))).length;
-  return {assigned:desired.length, cleared:openChanges.length, released:toRelease.length, preserved};
+  return {assigned:desired.length, cleared:openChanges.length, released:toRelease.length, preserved:0};
 }
 
 // A daily RezMagic upload is authoritative for the upgrade worklists too.
@@ -2127,7 +2107,7 @@ async function executeImport() {
     setStatus(
       "RezMagic import complete. CSV seating is now the source of truth: " +
       reconciliation.assigned + " assigned · " +
-      reconciliation.preserved + " existing seat(s) protected because no valid replacement was found · " +
+      "0 stale seat(s) preserved · " +
       reconciliation.cleared + " queue item(s) cleared. Raw CSV was not stored.",
       "ok"
     );
@@ -3439,12 +3419,28 @@ setInterval(() => {
 
   function seatCode(el){return String(el?.dataset?.seatId||el?.dataset?.seat||el?.getAttribute?.("data-seat-id")||el?.getAttribute?.("data-seat")||el?.textContent||"").trim().toUpperCase();}
   function overlaySeatMap(){
-    document.querySelectorAll(".seat,.ttseat").forEach(el=>{el.classList.remove("history2025Own","history2025Linked");if(el.dataset.historyTitle){el.title=el.dataset.historyOriginalTitle||"";delete el.dataset.historyTitle;delete el.dataset.historyOriginalTitle;}});
-    if(!overlayOn)return;
-    const rezId=currentRez();if(!rezId)return;
-    const own=recordsForRez(rezId).filter(r=>r.seat_id),linked=linkedRezIds(rezId).flatMap(id=>recordsForRez(id)).filter(r=>r.seat_id);
-    const ownBySeat=new Map(),linkedBySeat=new Map();own.forEach(r=>ownBySeat.set(String(r.seat_id).toUpperCase(),r));linked.forEach(r=>linkedBySeat.set(String(r.seat_id).toUpperCase(),r));
-    document.querySelectorAll(".seat,.ttseat").forEach(el=>{const code=seatCode(el),ownRec=ownBySeat.get(code),linkedRec=linkedBySeat.get(code),rec=ownRec||linkedRec;if(!rec)return;el.classList.add(ownRec?"history2025Own":"history2025Linked");el.dataset.historyOriginalTitle=el.title||"";el.dataset.historyTitle="1";el.title="2025: "+rec.guest_name+" · "+rec.seat_id+(rec.matched_rez_id?" · 2026 #"+rec.matched_rez_id:"");});
+    document.querySelectorAll(".seat,.ttseat").forEach(el=>{
+      el.classList.remove("history2025Own","history2025Linked");
+      if(el.dataset.historyTitle){el.title=el.dataset.historyOriginalTitle||"";delete el.dataset.historyTitle;delete el.dataset.historyOriginalTitle;}
+    });
+    if(!historyReady)return;
+    const assigned2026=new Set((window.assignments||[]).map(a=>String(a.seat_id||"").trim().toUpperCase()));
+    const historicalBySeat=new Map();
+    historicalRecords.filter(record=>record.seat_id).forEach(record=>{
+      const code=String(record.seat_id).trim().toUpperCase();
+      if(!historicalBySeat.has(code))historicalBySeat.set(code,[]);
+      historicalBySeat.get(code).push(record);
+    });
+    document.querySelectorAll(".seat,.ttseat").forEach(el=>{
+      const code=seatCode(el);
+      if(assigned2026.has(code))return;
+      const records=historicalBySeat.get(code);
+      if(!records?.length)return;
+      const guests=records.map(record=>record.guest_name).filter(Boolean).join(" / ");
+      el.dataset.historyOriginalTitle=el.title||"";
+      el.dataset.historyTitle="1";
+      el.title="Empty in 2026 · 2025: "+guests;
+    });
   }
   function ensureToggle(){
     overlayOn=false;
