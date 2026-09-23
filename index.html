@@ -97,7 +97,7 @@ body{margin:0;font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);
 .ttcenter{min-height:1px}
 
 .rightbar{padding:10px}
-.rightbar h3{font-size:12px;color:var(--navy);margin:0 0 8px}
+.rightbar h3,.reservationPanel h3{font-size:12px;color:var(--navy);margin:0 0 8px}
 .rule{border-top:1px solid var(--line);margin:12px 0}
 .help{font-size:12px;line-height:1.55;color:#4f5863}
 .swatch{display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12px}
@@ -106,8 +106,8 @@ body{margin:0;font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);
 .linkBox{background:#f6f2fb;border:1px solid #d9cae9;border-radius:8px;padding:9px;margin-top:10px}
 
 @media (max-width:1200px){
-  .workspace{grid-template-columns:250px minmax(820px,1fr)}
-  .rightbar{display:none}
+  .workspace{grid-template-columns:300px minmax(820px,1fr)}
+  .upcomingPanel{display:none}
   .summary{grid-template-columns:1fr 1fr}
 }
 
@@ -143,6 +143,10 @@ button:disabled{cursor:not-allowed;opacity:.55}
 .metric b{font-size:19px}
 .liveText{font-size:11px;color:var(--muted);margin-top:7px}
 .sidebar{max-height:930px;overflow:hidden;display:flex;flex-direction:column}
+.reservationPanel,.upcomingPanel{background:#fff;border:1px solid var(--line);border-radius:10px}
+.reservationPanel{padding:12px;max-height:930px;overflow:auto}
+.upcomingPanel{padding:10px;max-height:930px;overflow:hidden;display:flex;flex-direction:column}
+#reservationDetail{min-height:1px}
 #rezlist{overflow:auto;padding-right:2px}
 .resitem{cursor:pointer}
 .resitem:hover{background:#f8faff}
@@ -203,7 +207,7 @@ button:disabled{cursor:not-allowed;opacity:.55}
 .modal-actions button{border:1px solid var(--line);background:#fff;border-radius:7px;padding:8px 10px;font-weight:800}
 .modal-actions button.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
 @media (max-width:1200px){
-  .rightbar{display:block;grid-column:1/-1;max-height:none}
+  .upcomingPanel{display:block;grid-column:1/-1;max-height:none}
 }
 @media (max-width:760px){
   .app{padding:8px}
@@ -211,7 +215,7 @@ button:disabled{cursor:not-allowed;opacity:.55}
   .brand h1{font-size:19px}
   .summary{grid-template-columns:1fr}
   .workspace{display:block}
-  .sidebar,.mapcard,.rightbar{max-height:none;margin-bottom:10px}
+  .reservationPanel,.upcomingPanel,.mapcard{max-height:none;margin-bottom:10px}
   .workspace .mapcard{overflow:auto}
   .privacy-grid{grid-template-columns:1fr}
 }
@@ -413,9 +417,9 @@ button[disabled]{opacity:.58;cursor:not-allowed}
     </div>
 
     <div class="workspace" id="workspace">
-      <aside class="sidebar">
-        <div class="tabs"><div class="tab active">Reservations</div><div class="tab" id="resultCount">0 results</div></div>
-        <div id="rezlist"></div>
+      <aside class="reservationPanel" aria-label="Selected reservation details">
+        <h3>RESERVATION DETAILS</h3>
+        <div id="reservationDetail" class="help">Select a reservation from the upcoming list, a worklist, or a seat on the map.</div>
       </aside>
 
       <section class="mapcard">
@@ -447,9 +451,9 @@ button[disabled]{opacity:.58;cursor:not-allowed}
         </div>
       </section>
 
-      <aside class="rightbar">
-        <h3>RESERVATION DETAILS</h3>
-        <div id="reservationDetail" class="help">Select a reservation from the left.</div>
+      <aside class="upcomingPanel" aria-label="Upcoming reservations">
+        <div class="tabs"><div class="tab active">Upcoming Next</div><div class="tab" id="resultCount">0 shown</div></div>
+        <div id="rezlist"></div>
       </aside>
     </div>
 
@@ -1145,12 +1149,12 @@ function renderReservationList() {
     return String(r.rez_id).toLowerCase().includes(query) || names.toLowerCase().includes(query);
   });
 
-  $("resultCount").textContent = rows.length + " results";
+  $("resultCount").textContent = Math.min(rows.length, 5) + " of " + rows.length + " shown";
   const box = $("rezlist");
   box.innerHTML = "";
 
   const fragment = document.createDocumentFragment();
-  rows.slice(0, 800).forEach(r => {
+  rows.slice(0, 5).forEach(r => {
     const id = String(r.rez_id);
     const gs = rezGuests(id);
     const seatCount = rezSeats(id).length;
@@ -1197,7 +1201,7 @@ function roomInventoryDetails(record) {
 function renderDetails() {
   const host = $("reservationDetail");
   if (!selectedRez) {
-    host.innerHTML = "Select a reservation from the left.";
+    host.innerHTML = "Select a reservation from the upcoming list, a worklist, or a seat on the map.";
     return;
   }
 
