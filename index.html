@@ -784,7 +784,13 @@ function isSuiteRequest(record) {
   // `requests` is rebuilt from the current RezMagic CSV on every import. Do
   // not infer an active request from comments: staff may leave historical
   // wording in those fields after taking the actual upgrade add-on off a rez.
-  return requests.some(x => /Room Type Change Request to Suite/i.test(String(x)));
+  return requests.some(x => {
+    const text = String(x || "");
+    // Current RezMagic request add-ons are authoritative. Accept both of the
+    // exported labels RezMagic uses: "Room Type Change Request to Suite" and
+    // "Room Type Request to Suite".
+    return /\bsuite\b/i.test(text) && /room\s*type\s*(?:change\s*)?request/i.test(text);
+  });
 }
 
 function isRoomUpgradeRequest(record) {
@@ -3490,7 +3496,7 @@ setInterval(() => {
   }
   window.historical2025DetailsMarkup=historicalDetailsMarkup;
 
-  function reservationSidebar(){return document.querySelector(".sidebar");}
+  function reservationSidebar(){return document.querySelector(".reservationPanel");}
   function findNotesHeading(){
     const sidebar=reservationSidebar();if(!sidebar)return null;
     const candidates=[...sidebar.querySelectorAll("h1,h2,h3,h4,h5,h6,div,span,strong,b")];
@@ -3691,5 +3697,116 @@ setInterval(() => {
   window.setTimeout(arrangeHeaderActions,250);window.setTimeout(arrangeHeaderActions,1200);
 })();
 </script>
-</body>
+
+<script data-canonical-source="reservation-work-surface">
+"use strict";
+/* Keep one stable working layout: reservation details on the left, map in the
+   center, and either the next five reservations or the selected work queue on
+   the right. This deliberately replaces the obsolete sidebar/rail handoff. */
+(function(){
+  function rowRezId(row){ return String(row?.rez_id || row?.dateRecord?.rez_id || ""); }
+  function statusFor(rezId, type){
+    return typeof latestRequestStatus === "function" ? latestRequestStatus(rezId,type) : "pending";
+  }
+  function rowsFor(mode){
+    if(mode === "suite") return suiteRequestRows().filter(r => statusFor(r.rez_id,"suite") !== "resolved");
+    if(mode === "ada" || mode === "king") return roomRequestRows(mode).filter(r => statusFor(r.rez_id,"room") !== "resolved");
+    if(mode === "group") return groupRequestRows().filter(r => statusFor(rowRezId(r),"group") !== "resolved");
+    return [];
+  }
+  function typeFor(mode){ return mode === "ada" || mode === "king" ? "room" : mode; }
+  function setBadge(id, value){ const el=document.getElementById(id); if(el) el.textContent=String(value); }
+  function openReservation(rezId){
+    selectedRez=String(rezId);
+    selectedGuest=rezGuests(selectedRez)[0]?.id || null;
+    renderAll();
+  }
+  function workTitle(mode){
+    return mode === "suite" ? "Work Suites" : mode === "ada" ? "ADA Upgrades" : mode === "king" ? "King Upgrades" : "Group Seating";
+  }
+  function queueCard(row, mode, index){
+    const rezId=rowRezId(row);
+    const record=reservations.find(r => String(r.rez_id) === rezId);
+    const names=mode === "group"
+      ? String(row.names || "")
+      : rezGuests(rezId).map(g => g.guest_name).join(" / ");
+    const status=statusFor(rezId,typeFor(mode));
+    const request=mode === "group"
+      ? (row.memberIds?.length || 1) + " linked reservations"
+      : requestText(record) || "Request";
+    return '<article class="rightWorkCard" data-work-rez="' + esc(rezId) + '">' +
+      '<div class="rightWorkTop"><b>' + (index === 0 ? "WORK NOW · " : "") + "#" + esc(rezId) + '</b><span>' + esc(String(status).replace(/_/g," ")) + '</span></div>' +
+      '<div class="rightWorkNames">' + esc(names || "No guest name") + '</div>' +
+      '<div class="rightWorkRequest">' + esc(request) + '</div>' +
+      '<div class="rightWorkActions"><button type="button" data-open-rez="' + esc(rezId) + '">Open</button>' +
+      '<button type="button" class="rightWorkComplete" data-type="' + esc(typeFor(mode)) + '" data-rez="' + esc(rezId) + '">Request Complete</button></div>' +
+    '</article>';
+  }
+  function renderRightWorkSurface(){
+    const list=document.getElementById("rezlist");
+    const heading=document.querySelector(".upcomingPanel .tab.active");
+    const count=document.getElementById("resultCount");
+    if(!list || !heading || !count) return;
+
+    const suite=rowsFor("suite"), ada=rowsFor("ada"), king=rowsFor("king"), group=rowsFor("group");
+    setBadge("suiteWorkBadge",suite.length);
+    setBadge("adaWorkBadge",ada.length);
+    setBadge("kingWorkBadge",king.length);
+    setBadge("groupWorkBadge",group.length);
+
+    document.querySelectorAll("[data-work-mode]").forEach(button => {
+      button.classList.toggle("active",button.dataset.workMode === requestView);
+      button.onclick=()=>{
+        requestView = button.dataset.workMode === requestView ? "" : button.dataset.workMode;
+        localStorage.setItem("fsjw_work_mode",requestView || "");
+        renderAll();
+      };
+    });
+
+    if(!requestView){
+      heading.textContent="Upcoming Next";
+      const total=reservations.filter(r=>{
+        const query=(document.getElementById("search")?.value || "").trim().toLowerCase();
+        if(!query) return true;
+        return String(r.rez_id).toLowerCase().includes(query) || rezGuests(r.rez_id).some(g=>String(g.guest_name||"").toLowerCase().includes(query));
+      }).length;
+      count.textContent=Math.min(total,5)+" of "+total+" shown";
+      return;
+    }
+
+    const rows=rowsFor(requestView);
+    heading.textContent=workTitle(requestView);
+    count.textContent=Math.min(rows.length,5)+" of "+rows.length+" shown";
+    list.innerHTML=rows.slice(0,5).map((row,index)=>queueCard(row,requestView,index)).join("") ||
+      '<div class="empty">Nothing pending in this queue.</div>';
+
+    list.querySelectorAll("[data-open-rez]").forEach(button=>button.addEventListener("click",()=>openReservation(button.dataset.openRez)));
+    list.querySelectorAll(".rightWorkCard").forEach(card=>card.addEventListener("click",event=>{
+      if(event.target.closest("button")) return;
+      openReservation(card.dataset.workRez);
+    }));
+    list.querySelectorAll(".rightWorkComplete").forEach(button=>button.addEventListener("click",async()=>{
+      await resolveWorkRequest(button.dataset.rez,button.dataset.type);
+    }));
+  }
+
+  const priorRenderAll=window.renderAll;
+  window.renderAll=function(){
+    priorRenderAll();
+    renderRightWorkSurface();
+  };
+
+  if(!["suite","ada","king","group"].includes(requestView)) requestView="";
+  const style=document.createElement("style");
+  style.textContent=
+    '.rightWorkCard{border:1px solid var(--line);border-radius:8px;padding:9px;margin-bottom:7px;background:#fff;cursor:pointer}' +
+    '.rightWorkCard:hover{background:#f8faff}.rightWorkTop{display:flex;justify-content:space-between;gap:6px;align-items:start;color:var(--navy);font-size:11px}' +
+    '.rightWorkTop span{border-radius:999px;background:#eef3ff;padding:3px 5px;font-size:8px;text-transform:capitalize;color:var(--navy);white-space:nowrap}' +
+    '.rightWorkNames{font-size:11px;line-height:1.3;margin-top:5px}.rightWorkRequest{font-size:9px;color:var(--muted);line-height:1.35;margin-top:5px}' +
+    '.rightWorkActions{display:grid;grid-template-columns:1fr 1.25fr;gap:5px;margin-top:8px}.rightWorkActions button{border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:6px;padding:6px 5px;font-size:9px;font-weight:800}' +
+    '.rightWorkActions .rightWorkComplete{background:#173d70;color:#fff;border-color:#173d70}';
+  document.head.appendChild(style);
+  window.setTimeout(()=>renderRightWorkSurface(),0);
+})();
+</script>\n</body>
 </html>
