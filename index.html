@@ -3423,7 +3423,8 @@ setInterval(() => {
       if(el.dataset.historyTitle){el.title=el.dataset.historyOriginalTitle||"";delete el.dataset.historyTitle;delete el.dataset.historyOriginalTitle;}
     });
     if(!historyReady)return;
-    const assigned2026=new Set((window.assignments||[]).map(a=>String(a.seat_id||"").trim().toUpperCase()));
+    const currentAssignments=(()=>{try{return Array.isArray(assignments)?assignments:[];}catch{return [];}})();
+    const assigned2026=new Set(currentAssignments.map(a=>String(a.seat_id||"").trim().toUpperCase()));
     const historicalBySeat=new Map();
     historicalRecords.filter(record=>record.seat_id).forEach(record=>{
       const code=String(record.seat_id).trim().toUpperCase();
