@@ -1361,48 +1361,67 @@ function seatCode(row, number) {
   return row + String(number).padStart(2,"0");
 }
 
-function openSeatReservation(occupant, code) {
-  if (!occupant) {
-    setStatus(code + " is empty.", "ok");
-    return;
-  }
-  selectedRez = String(occupant.rez_id);
-  selectedGuest = occupant.guest_id || null;
-  renderAll();
-  setStatus("Opened " + occupant.guest_name + " · Rez #" + occupant.rez_id + " from " + code + ".", "ok");
-}
-
-function createSeat(row, number, sameSeats, linkedSeats) {
+function createSeat(row, number, sameSeats, linkedSeats, movingSeat) {
   const code = seatCode(row, number);
   const button = document.createElement("button");
   button.className = "seat " + (BLUE_ROWS.has(row) ? "blue" : "gold");
   button.dataset.seatId = code;
   button.textContent = number;
+
   const occupant = assignments.find(a => String(a.seat_id) === code);
   if (occupant) button.classList.add("occ");
   if (sameSeats.has(code)) button.classList.add("same");
   if (linkedSeats.has(code)) button.classList.add("linked");
-  button.title = occupant ? code + " · " + occupant.guest_name + " · Rez #" + occupant.rez_id : "Empty " + code;
-  button.addEventListener("click", () => openSeatReservation(occupant, code));
+  if (String(movingSeat || "") === code) button.classList.add("moving");
+
+  button.title = occupant
+    ? code + " · " + occupant.guest_name + " · Rez #" + occupant.rez_id
+    : "Open " + code;
+
+  button.addEventListener("click", () => {
+    if (occupant) {
+      selectedRez = String(occupant.rez_id);
+      selectedGuest = occupant.guest_id || null;
+      renderAll();
+      setStatus("Opened " + occupant.guest_name + " · Rez #" + occupant.rez_id + " from " + code + ".", "ok");
+      return;
+    }
+    moveSelectedGuest(code);
+  });
   return button;
 }
 
-function createTTSeat(number, sameSeats, linkedSeats) {
+function createTTSeat(number, sameSeats, linkedSeats, movingSeat) {
   const code = "TT" + String(number).padStart(2,"0");
   const button = document.createElement("button");
   button.className = "ttseat";
   button.dataset.seatId = code;
   button.textContent = number;
+
   const occupant = assignments.find(a => String(a.seat_id) === code);
   if (occupant) button.classList.add("occ");
   if (sameSeats.has(code)) button.classList.add("same");
   if (linkedSeats.has(code)) button.classList.add("linked");
-  button.title = occupant ? code + " · " + occupant.guest_name + " · Rez #" + occupant.rez_id : "Empty " + code;
-  button.addEventListener("click", () => openSeatReservation(occupant, code));
+  if (String(movingSeat || "") === code) button.classList.add("moving");
+
+  button.title = occupant
+    ? code + " · " + occupant.guest_name + " · Rez #" + occupant.rez_id
+    : "Open " + code;
+
+  button.addEventListener("click", () => {
+    if (occupant) {
+      selectedRez = String(occupant.rez_id);
+      selectedGuest = occupant.guest_id || null;
+      renderAll();
+      setStatus("Opened " + occupant.guest_name + " · Rez #" + occupant.rez_id + " from " + code + ".", "ok");
+      return;
+    }
+    moveSelectedGuest(code);
+  });
   return button;
 }
 
-function createTTItem(a, b, sameSeats, linkedSeats) {
+function createTTItem(a, b, sameSeats, linkedSeats, movingSeat) {
   const item = document.createElement("div");
   item.className = "ttitem";
 
@@ -1421,8 +1440,8 @@ function createTTItem(a, b, sameSeats, linkedSeats) {
 
   const pair = document.createElement("div");
   pair.className = "ttpair";
-  pair.appendChild(createTTSeat(a, sameSeats, linkedSeats));
-  pair.appendChild(createTTSeat(b, sameSeats, linkedSeats));
+  pair.appendChild(createTTSeat(a, sameSeats, linkedSeats, movingSeat));
+  pair.appendChild(createTTSeat(b, sameSeats, linkedSeats, movingSeat));
 
   item.append(circle, label, pair);
   return item;
@@ -1430,6 +1449,10 @@ function createTTItem(a, b, sameSeats, linkedSeats) {
 
 function renderMap() {
   const sameSeats = new Set(selectedRez ? rezSeats(selectedRez).map(a => String(a.seat_id)) : []);
+  const selectedChange = selectedGuest ? latestOpenChange(selectedGuest) : null;
+  const movingSeat = selectedChange && (selectedChange.status === "needs_update" || selectedChange.status === "entered")
+    ? selectedChange.working_seat || assignmentForGuest(selectedGuest)?.seat_id || null
+    : null;
   const linkedRez = selectedRez ? linkedRezIds(selectedRez) : [];
   const linkedSeats = new Set(linkedRez.flatMap(id => rezSeats(id)).map(a => String(a.seat_id)));
 
@@ -1446,7 +1469,7 @@ function renderMap() {
         gap.className = "gap";
         div.appendChild(gap);
       } else {
-        div.appendChild(createSeat(row,n,sameSeats,linkedSeats));
+        div.appendChild(createSeat(row,n,sameSeats,linkedSeats,movingSeat));
       }
     }
 
@@ -1461,17 +1484,17 @@ function renderMap() {
         gap.className = "gap";
         div.appendChild(gap);
       } else {
-        div.appendChild(createSeat(row,n,sameSeats,linkedSeats));
+        div.appendChild(createSeat(row,n,sameSeats,linkedSeats,movingSeat));
       }
     }
 
     rowHost.appendChild(div);
   });
 
-  renderTT(sameSeats, linkedSeats);
+  renderTT(sameSeats, linkedSeats, movingSeat);
 }
 
-function renderTT(sameSeats, linkedSeats) {
+function renderTT(sameSeats, linkedSeats, movingSeat) {
   const banks = [
     ["ttLeftTop", [[1,2],[3,4],[5,6],[7,8],[9,10]]],
     ["ttLeftBottom", [[21,22],[23,24],[25,26],[27,28]]],
@@ -1481,7 +1504,7 @@ function renderTT(sameSeats, linkedSeats) {
   for (const [id, pairs] of banks) {
     const host = $(id);
     host.innerHTML = "";
-    pairs.forEach(([a,b]) => host.appendChild(createTTItem(a,b,sameSeats,linkedSeats)));
+    pairs.forEach(([a,b]) => host.appendChild(createTTItem(a,b,sameSeats,linkedSeats,movingSeat)));
   }
 }
 
@@ -1500,7 +1523,129 @@ async function audit(action, entityType, entityId, oldValue=null, newValue=null)
   });
 }
 
-function parseCSV(text) {function parseCSV(text) {
+async function moveSelectedGuest(targetSeat) {
+  if (!selectedRez || !selectedGuest) {
+    setStatus("Choose a reservation and guest before selecting a seat.", "warn");
+    return;
+  }
+
+  const guest = guests.find(g => String(g.id) === String(selectedGuest));
+  if (!guest) {
+    setStatus("Selected guest could not be found.", "warn");
+    return;
+  }
+
+  const current = assignmentForGuest(selectedGuest);
+  const occupied = assignments.find(a => String(a.seat_id) === String(targetSeat));
+  if (occupied && String(occupied.guest_id) !== String(selectedGuest)) {
+    setStatus(targetSeat + " is already occupied by " + occupied.guest_name + ".", "warn");
+    return;
+  }
+
+  const oldSeat = current?.seat_id || null;
+  if (String(oldSeat || "") === String(targetSeat)) return;
+
+  try {
+    setStatus("Saving seat change…", "busy");
+
+    if (current) {
+      await api("seat_assignments?id=eq." + encodeURIComponent(current.id), {
+        method:"PATCH",
+        headers:{Prefer:"return=minimal"},
+        body:JSON.stringify({
+          seat_id:targetSeat,
+          working_seat:targetSeat,
+          sync_status:"needs_update",
+          updated_at:new Date().toISOString()
+        })
+      });
+    } else {
+      await api("seat_assignments", {
+        method:"POST",
+        headers:{Prefer:"return=minimal"},
+        body:JSON.stringify({
+          seat_id:targetSeat,
+          rez_id:String(selectedRez),
+          guest_id:selectedGuest,
+          guest_name:guest.guest_name,
+          rezmagic_seat:null,
+          source_seat:null,
+          working_seat:targetSeat,
+          sync_status:"needs_update"
+        })
+      });
+    }
+
+    const existingChange = latestOpenChange(selectedGuest);
+    const originalRezMagicSeat =
+      existingChange?.rezmagic_seat ??
+      current?.rezmagic_seat ??
+      current?.source_seat ??
+      oldSeat ??
+      null;
+
+    if (existingChange) {
+      await api("rezmagic_changes?id=eq." + encodeURIComponent(existingChange.id), {
+        method:"PATCH",
+        headers:{Prefer:"return=minimal"},
+        body:JSON.stringify({
+          working_seat:targetSeat,
+          status:"needs_update",
+          marked_updated_by:null,
+          marked_updated_at:null,
+          verified_at:null,
+          updated_at:new Date().toISOString()
+        })
+      });
+    } else {
+      await api("rezmagic_changes", {
+        method:"POST",
+        headers:{Prefer:"return=minimal"},
+        body:JSON.stringify({
+          rez_id:String(selectedRez),
+          guest_id:selectedGuest,
+          guest_name:guest.guest_name,
+          rezmagic_seat:originalRezMagicSeat,
+          working_seat:targetSeat,
+          status:"needs_update",
+          updated_at:new Date().toISOString()
+        })
+      });
+    }
+
+    let auditWarning = "";
+    try {
+      await audit(
+        "seat_move",
+        "reservation",
+        selectedRez,
+        {
+          guest_id:selectedGuest,
+          guest_name:guest.guest_name,
+          seat:oldSeat,
+          active_change_id:existingChange?.id || null
+        },
+        {
+          guest_id:selectedGuest,
+          guest_name:guest.guest_name,
+          seat:targetSeat,
+          rezmagic_update_required:true
+        }
+      );
+    } catch (auditError) {
+      console.warn("Seat move saved, but audit log write needs attention:", auditError);
+      auditWarning = " Audit log warning; move and RezMagic update were saved.";
+    }
+
+    await loadAll({quiet:true});
+    setStatus(guest.guest_name + " moved " + (oldSeat || "unassigned") + " → " + targetSeat + ". Added to RezMagic Updates." + auditWarning, auditWarning ? "warn" : "ok");
+  } catch (error) {
+    setStatus("Seat move failed: " + error.message, "warn");
+    await loadAll({quiet:true});
+  }
+}
+
+function parseCSV(text) {
   const rawRows = [];
   let row = [];
   let field = "";
@@ -3294,30 +3439,14 @@ setInterval(() => {
 
   function seatCode(el){return String(el?.dataset?.seatId||el?.dataset?.seat||el?.getAttribute?.("data-seat-id")||el?.getAttribute?.("data-seat")||el?.textContent||"").trim().toUpperCase();}
   function overlaySeatMap(){
-    document.querySelectorAll(".seat,.ttseat").forEach(el=>{
-      el.classList.remove("history2025Own","history2025Linked");
-      if(el.dataset.historyTitle){el.title=el.dataset.historyOriginalTitle||"";delete el.dataset.historyTitle;delete el.dataset.historyOriginalTitle;}
-    });
-    if(!historyReady)return;
-    const assigned2026=new Set((window.assignments||[]).map(a=>String(a.seat_id||"").trim().toUpperCase()));
-    const historicalBySeat=new Map();
-    historicalRecords.filter(record=>record.seat_id).forEach(record=>{
-      const code=String(record.seat_id).trim().toUpperCase();
-      if(!historicalBySeat.has(code))historicalBySeat.set(code,[]);
-      historicalBySeat.get(code).push(record);
-    });
-    document.querySelectorAll(".seat,.ttseat").forEach(el=>{
-      const code=seatCode(el);
-      if(assigned2026.has(code))return;
-      const records=historicalBySeat.get(code);
-      if(!records?.length)return;
-      const guests=records.map(record=>record.guest_name).filter(Boolean).join(" / ");
-      el.dataset.historyOriginalTitle=el.title||"";
-      el.dataset.historyTitle="1";
-      el.title="Empty in 2026 · 2025: "+guests;
-    });
+    document.querySelectorAll(".seat,.ttseat").forEach(el=>{el.classList.remove("history2025Own","history2025Linked");if(el.dataset.historyTitle){el.title=el.dataset.historyOriginalTitle||"";delete el.dataset.historyTitle;delete el.dataset.historyOriginalTitle;}});
+    if(!overlayOn)return;
+    const rezId=currentRez();if(!rezId)return;
+    const own=recordsForRez(rezId).filter(r=>r.seat_id),linked=linkedRezIds(rezId).flatMap(id=>recordsForRez(id)).filter(r=>r.seat_id);
+    const ownBySeat=new Map(),linkedBySeat=new Map();own.forEach(r=>ownBySeat.set(String(r.seat_id).toUpperCase(),r));linked.forEach(r=>linkedBySeat.set(String(r.seat_id).toUpperCase(),r));
+    document.querySelectorAll(".seat,.ttseat").forEach(el=>{const code=seatCode(el),ownRec=ownBySeat.get(code),linkedRec=linkedBySeat.get(code),rec=ownRec||linkedRec;if(!rec)return;el.classList.add(ownRec?"history2025Own":"history2025Linked");el.dataset.historyOriginalTitle=el.title||"";el.dataset.historyTitle="1";el.title="2025: "+rec.guest_name+" · "+rec.seat_id+(rec.matched_rez_id?" · 2026 #"+rec.matched_rez_id:"");});
   }
-  function ensureToggle(){  function ensureToggle(){
+  function ensureToggle(){
     overlayOn=false;
     document.getElementById("toggle2025Seating")?.remove();
   }
