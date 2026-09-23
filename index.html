@@ -1953,13 +1953,13 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
     desired.push({guest, row});
   }
 
-  // A valid imported seat updates that guest (or releases a seat explicitly
-  // assigned to another guest in the current CSV). If a CSV format changes or
-  // fails to expose a seat field, existing confirmed seating remains visible
-  // rather than being erased.
-  const importedGuestIds = new Set(desired.map(x => String(x.guest.id)));
+  // Once this CSV has passed its duplicate-seat and guest-match checks, it is
+  // the complete current seating snapshot. Replace every imported reservation's
+  // prior assignment, including guests who are now intentionally unassigned.
+  const importedGuestIds = new Set(importedGuests.map(g => String(g.id)));
   const claimedSeats = new Set(desired.map(x => String(x.row.seat)));
   const toRelease = assignments.filter(a =>
+    importedRezIds.has(String(a.rez_id)) ||
     importedGuestIds.has(String(a.guest_id)) ||
     claimedSeats.has(normalizeSeatId(a.seat_id) || String(a.seat_id))
   );
@@ -1981,9 +1981,7 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
       body:JSON.stringify({status:"synced", verified_at:now, updated_at:now})
     });
   }
-  const preserved = importedGuests.filter(g => !importedGuestIds.has(String(g.id)))
-    .filter(g => assignments.some(a => String(a.guest_id) === String(g.id))).length;
-  return {assigned:desired.length, cleared:openChanges.length, released:toRelease.length, preserved};
+  return {assigned:desired.length, cleared:openChanges.length, released:toRelease.length, preserved:0};
 }
 
 // A daily RezMagic upload is authoritative for the upgrade worklists too.
@@ -2108,7 +2106,7 @@ async function executeImport() {
     setStatus(
       "RezMagic import complete. CSV seating is now the source of truth: " +
       reconciliation.assigned + " assigned · " +
-      reconciliation.preserved + " existing seat(s) protected because no valid replacement was found · " +
+      "0 stale seat(s) preserved · " +
       reconciliation.cleared + " queue item(s) cleared. Raw CSV was not stored.",
       "ok"
     );
