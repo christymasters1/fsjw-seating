@@ -777,20 +777,19 @@ function requestText(record) {
 
 function isSuiteRequest(record) {
   const requests = requestList(record);
-  if (requests.some(x => /Room Type Change Request to Suite/i.test(x))) return true;
-  const text = requestText(record);
-  if (!text || /\bnot suite\b/i.test(text) || /\bsame suite category\b/i.test(text)) return false;
-  return /(?:request|want|wants|upgrade|looking for|change|consider|prefer)[^.!]{0,70}\bsuite\b/i.test(text) ||
-         /\bsuite\b[^.!]{0,70}(?:request|upgrade|available|please)/i.test(text);
+  // `requests` is rebuilt from the current RezMagic CSV on every import. Do
+  // not infer an active request from comments: staff may leave historical
+  // wording in those fields after taking the actual upgrade add-on off a rez.
+  return requests.some(x => /Room Type Change Request to Suite/i.test(String(x)));
 }
 
 function isRoomUpgradeRequest(record) {
   const requests = requestList(record);
-  if (requests.some(x => /Room Type (?:Change )?Request/i.test(x) && !/Suite/i.test(x))) return true;
-  const text = requestText(record);
-  return /\broom upgrade\b/i.test(text) ||
-         /\bupgrade[^.!]{0,45}\b(?:king|room|oceanfront|terrace|ada)\b/i.test(text) ||
-         /\b(?:request|want|wants|looking for|change)[^.!]{0,55}\bking (?:bed|room)\b/i.test(text);
+  // See isSuiteRequest. The current CSV's structured request add-on is the
+  // sole source of truth for this work queue.
+  return requests.some(x =>
+    /Room Type (?:Change )?Request/i.test(String(x)) && !/Suite/i.test(String(x))
+  );
 }
 
 function rezGuestCount(rezId) {
@@ -822,7 +821,12 @@ function latestRequestStatus(rezId, type) {
     String(x.new_value?.request_type || "") === String(type)
   );
   if (!matches.length) return "pending";
-  return String(matches[matches.length - 1].new_value?.status || "pending");
+  const latest = matches[matches.length - 1];
+  // If a request was removed by a prior authoritative import and later comes
+  // back in RezMagic, it is a new, pending request rather than permanently
+  // hidden by the earlier automatic resolution.
+  if (latest.new_value?.status === "resolved" && latest.new_value?.source === "rezmagic_csv_import") return "pending";
+  return String(latest.new_value?.status || "pending");
 }
 
 function statusBadge(status) {
@@ -1977,6 +1981,47 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
   return {assigned:desired.length, cleared:openChanges.length, released:toRelease.length, preserved};
 }
 
+// A daily RezMagic upload is authoritative for the upgrade worklists too.
+// When a request add-on is removed in RezMagic, close its old work state so it
+// cannot reappear through a saved status or any other queue view.
+async function reconcileRemovedUpgradeRequests(importedRezIds, now) {
+  const removed = [];
+  for (const record of reservations) {
+    if (!importedRezIds.has(String(record.rez_id))) continue;
+    for (const type of ["suite", "room"]) {
+      const stillRequested = type === "suite" ? isSuiteRequest(record) : isRoomUpgradeRequest(record);
+      if (stillRequested) continue;
+      const matches = requestStatuses.filter(x =>
+        String(x.entity_id) === String(record.rez_id) &&
+        String(x.new_value?.request_type || "") === type
+      );
+      const latest = matches[matches.length - 1];
+      if (!latest || latest.new_value?.status === "resolved") continue;
+      await api("audit_log", {
+        method:"POST",
+        headers:{Prefer:"return=minimal"},
+        body:JSON.stringify({
+          user_id:session.user.id,
+          action:"request_status",
+          entity_type:"reservation",
+          entity_id:String(record.rez_id),
+          new_value:{
+            request_type:type,
+            status:"resolved",
+            source:"rezmagic_csv_import",
+            resolved_at:now,
+            reason:"Request is not present in the current RezMagic CSV",
+            email:session.user.email
+          }
+        })
+      });
+      removed.push({rez_id:String(record.rez_id), type});
+    }
+  }
+  if (removed.length) requestStatuses = await apiAll("audit_log?select=*&action=eq.request_status&order=created_at.asc");
+  return removed;
+}
+
 async function executeImport() {
   const p = pendingImport;
   if (!p || isImporting) return;
@@ -2028,6 +2073,7 @@ async function executeImport() {
     await loadAll({quiet:true});
 
     const importedRezIds = new Set(p.rezVals.map(v => String(v.rez_id)));
+    const removedUpgradeRequests = await reconcileRemovedUpgradeRequests(importedRezIds, now);
     const reconciliation = await applyAuthoritativeRezMagicSeats(p.seatRows, importedRezIds, now);
 
     await audit(
@@ -2046,6 +2092,7 @@ async function executeImport() {
         released_assignments:reconciliation.released,
         preserved_assignments:reconciliation.preserved,
         cleared_queue_items:reconciliation.cleared,
+        removed_upgrade_requests:removedUpgradeRequests.length,
         conflicts:0
       }
     );
