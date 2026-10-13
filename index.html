@@ -1155,7 +1155,9 @@ function renderReservationList() {
   const rows = reservations.filter(r => {
     if (!query) return true;
     const names = rezGuests(r.rez_id).map(g => g.guest_name).join(" ");
-    return String(r.rez_id).toLowerCase().includes(query) || names.toLowerCase().includes(query);
+    const comments = [r.reservation_comments, r.guest_comments].filter(Boolean).join(" ");
+    const searchable = [r.rez_id, names, comments].join(" ").toLowerCase();
+    return searchable.includes(query);
   });
 
   $("resultCount").textContent = Math.min(rows.length, 5) + " of " + rows.length + " shown";
