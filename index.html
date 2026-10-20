@@ -5,6 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>FSJW Seating Manager</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 
 :root {
@@ -358,7 +359,7 @@ button[disabled]{opacity:.58;cursor:not-allowed}
         </div>
       </div>
       <div class="actions">
-        <label class="fileAction primary">Import RezMagic CSV<input id="csvfile" type="file" accept=".csv,text/csv" hidden></label>
+        <label class="fileAction primary">Import RezMagic File<input id="csvfile" type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></label>
         <button id="refresh">Refresh Shared Data</button>
         <button id="workSuites" class="workModeBtn" data-work-mode="suite">Work Suites <span id="suiteWorkBadge" class="workBadge">0</span></button>
         <button id="workAda" class="workModeBtn" data-work-mode="ada">ADA Upgrades <span id="adaWorkBadge" class="workBadge">0</span></button>
@@ -1687,6 +1688,25 @@ function normalizeSeatId(value) {
   return seat ? seat[1] + seat[2].padStart(2, "0") : null;
 }
 
+function importValue(source, names) {
+  for (const name of names) {
+    const value = source[name];
+    if (value !== undefined && value !== null && String(value).trim() !== "") return String(value).trim();
+  }
+  return "";
+}
+
+async function parseRezMagicFile(file) {
+  const isWorkbook = /\.xlsx$/i.test(file.name) || /spreadsheetml\.sheet/i.test(file.type || "");
+  if (!isWorkbook) return parseCSV(await file.text());
+  if (!window.XLSX) throw new Error("Spreadsheet reader did not load. Please retry once you have an internet connection.");
+  const workbook = XLSX.read(await file.arrayBuffer(), {type:"array", cellDates:true});
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  if (!sheet) throw new Error("The spreadsheet does not contain a worksheet.");
+  const rows = XLSX.utils.sheet_to_json(sheet, {defval:"", raw:false});
+  return {headers:Object.keys(rows[0] || {}), rows};
+}
+
 async function preflightCSV(file) {
   if (isImporting) {
     setStatus("An import is already running.", "warn");
@@ -1694,13 +1714,13 @@ async function preflightCSV(file) {
   }
 
   try {
-    setStatus("Reading RezMagic CSV locally…", "busy");
-    let rawText = await file.text();
-    const parsed = parseCSV(rawText);
-    rawText = null;
+    setStatus("Reading RezMagic file locally…", "busy");
+    const parsed = await parseRezMagicFile(file);
 
-    if (!parsed.rows.length) throw new Error("The CSV contains no data rows.");
-    if (!parsed.headers.includes("RezId1")) throw new Error("Expected RezId1 column was not found.");
+    if (!parsed.rows.length) throw new Error("The import file contains no data rows.");
+    if (!parsed.headers.some(header => /^(RezId1|Rez ID)$/i.test(String(header).trim()))) {
+      throw new Error("Expected RezId1 or Rez ID column was not found.");
+    }
 
     const sensitiveHeaderPattern = /(email|phone|mobile|address|street|city|state|zip|postal|balance|payment|amount|card|contact|billing)/i;
     const discardedSensitiveHeaders = parsed.headers.filter(h => sensitiveHeaderPattern.test(h));
@@ -1711,7 +1731,7 @@ async function preflightCSV(file) {
     const removed = {email:0, phone:0, address:0, card:0};
 
     for (const source of parsed.rows) {
-      const rezId = String(source.RezId1 || "").trim();
+      const rezId = importValue(source, ["RezId1", "Rez ID"]);
       if (!rezId) continue;
 
       if (!byRez.has(rezId)) {
@@ -1732,26 +1752,26 @@ async function preflightCSV(file) {
         });
       }
       const target = byRez.get(rezId);
-      target.created_on = target.created_on || String(source.CreatedOn || "").trim();
-      target.start_date = target.start_date || String(source.AdjStartDate || "").trim();
-      target.end_date = target.end_date || String(source.AdjEndDate || "").trim();
-      target.category_name = target.category_name || String(source.PrimaryCategoryName || source.CategoryName || source.ProductName || source.PrimaryCategory || source.Category || "").trim();
-      target.category_code = target.category_code || String(source.PrimaryCategoryCode || "").trim();
+      target.created_on = target.created_on || importValue(source, ["CreatedOn", "Create Date"]);
+      target.start_date = target.start_date || importValue(source, ["AdjStartDate", "Arrival Date"]);
+      target.end_date = target.end_date || importValue(source, ["AdjEndDate", "Departure Date"]);
+      target.category_name = target.category_name || importValue(source, ["PrimaryCategoryName", "CategoryName", "ProductName", "PrimaryCategory", "Category", "Room Type"]);
+      target.category_code = target.category_code || importValue(source, ["PrimaryCategoryCode", "Room Type"]);
       if (target.occupancy_number === null) {
-        const occupancy = Number(String(source.Occupancy || source.OccupancyNumber || source.OccupancyNo || source.OccupancyCount || "").trim());
+        const occupancy = Number(importValue(source, ["Occupancy", "OccupancyNumber", "OccupancyNo", "OccupancyCount"]));
         target.occupancy_number = Number.isFinite(occupancy) && occupancy > 0 ? occupancy : null;
       }
       if (target.night_count === null) {
-        const nights = Number(String(source.NightCount || "").trim());
+        const nights = Number(importValue(source, ["NightCount", "# of Nights"]));
         target.night_count = Number.isFinite(nights) ? nights : null;
       }
-      const upgradeCode = String(source.AddOnCategoryName || "").trim();
-      const upgradeProduct = String(source.AddOnProductName || "").trim();
+      const upgradeCode = importValue(source, ["AddOnCategoryName", "Concert Seating Upgrade"]);
+      const upgradeProduct = importValue(source, ["AddOnProductName", "Reserved Concert Assigned Seating"]);
       if (upgradeCode === "SUP") {
         target.seat_upgrade_status = "YES on reservation";
       }
 
-      const guestName = String(source.PartyName || "").trim();
+      const guestName = importValue(source, ["PartyName", "Guest Name"]);
       if (guestName) target.guests.add(guestName);
 
       for (const [sourceField, targetField] of [
@@ -1777,9 +1797,13 @@ async function preflightCSV(file) {
         }
       }
 
-      const addon = String(source.AddOnCategoryName || "").trim();
-      const normalizedSeat = normalizeSeatId(addon);
-      const addonProduct = String(source.AddOnProductName || "").trim();
+      const addon = importValue(source, ["AddOnCategoryName"]);
+      const addonProduct = importValue(source, ["AddOnProductName"]);
+      const normalizedSeat = [
+        addon,
+        importValue(source, ["Thursday/Friday/Saturday Assigned Seating"]),
+        importValue(source, ["Assigned Seating"])
+      ].map(normalizeSeatId).find(Boolean);
       if (addon && !looksLikeSeat(addon)) {
         const cleaned = privacyClean(addon);
         if (cleaned.flags.length) {
@@ -1955,15 +1979,21 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
     desired.push({guest, row});
   }
 
-  // Once this CSV has passed its duplicate-seat and guest-match checks, it is
-  // the complete current seating snapshot. Replace every imported reservation's
-  // prior assignment, including guests who are now intentionally unassigned.
-  const importedGuestIds = new Set(importedGuests.map(g => String(g.id)));
+  // A daily file may omit a seating column or an individual seat row. It may
+  // update a confirmed seat, but it must never make a confirmed seat disappear
+  // merely because that row was absent or unrecognized in the export.
+  const importedGuestIds = new Set(desired.map(x => String(x.guest.id)));
   const claimedSeats = new Set(desired.map(x => String(x.row.seat)));
+  const protectedAssignments = assignments.filter(a =>
+    claimedSeats.has(normalizeSeatId(a.seat_id) || String(a.seat_id)) &&
+    !importedGuestIds.has(String(a.guest_id))
+  );
+  if (protectedAssignments.length) {
+    const collision = protectedAssignments[0];
+    throw new Error("RezMagic assigns " + collision.seat_id + " to a different guest than the seating manager. No seats were changed.");
+  }
   const toRelease = assignments.filter(a =>
-    importedRezIds.has(String(a.rez_id)) ||
-    importedGuestIds.has(String(a.guest_id)) ||
-    claimedSeats.has(normalizeSeatId(a.seat_id) || String(a.seat_id))
+    importedGuestIds.has(String(a.guest_id))
   );
   for (const assignment of toRelease) {
     await api("seat_assignments?id=eq." + encodeURIComponent(assignment.id), {method:"DELETE", headers:{Prefer:"return=minimal"}});
@@ -1983,7 +2013,9 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
       body:JSON.stringify({status:"synced", verified_at:now, updated_at:now})
     });
   }
-  return {assigned:desired.length, cleared:openChanges.length, released:toRelease.length, preserved:0};
+  const preserved = importedGuests.filter(g => !importedGuestIds.has(String(g.id)))
+    .filter(g => assignments.some(a => String(a.guest_id) === String(g.id))).length;
+  return {assigned:desired.length, cleared:openChanges.length, released:toRelease.length, preserved};
 }
 
 // A daily RezMagic upload is authoritative for the upgrade worklists too.
@@ -2106,9 +2138,9 @@ async function executeImport() {
     await saveSnapshot("Auto · After RezMagic import · " + new Date().toLocaleString());
 
     setStatus(
-      "RezMagic import complete. CSV seating is now the source of truth: " +
+      "RezMagic import complete. " +
       reconciliation.assigned + " assigned · " +
-      "0 stale seat(s) preserved · " +
+      reconciliation.preserved + " existing seat(s) protected because no valid replacement was found · " +
       reconciliation.cleared + " queue item(s) cleared. Raw CSV was not stored.",
       "ok"
     );
