@@ -1799,10 +1799,10 @@ async function preflightCSV(file) {
 
       const addon = importValue(source, ["AddOnCategoryName"]);
       const addonProduct = importValue(source, ["AddOnProductName"]);
+      const assignedSeatValue = importValue(source, ["Thursday/Friday/Saturday Assigned Seating", "Assigned Seating"]);
       const normalizedSeat = [
-        addon,
-        importValue(source, ["Thursday/Friday/Saturday Assigned Seating"]),
-        importValue(source, ["Assigned Seating"])
+        /assigned seating/i.test(addonProduct) ? addon : "",
+        assignedSeatValue
       ].map(normalizeSeatId).find(Boolean);
       if (addon && !looksLikeSeat(addon)) {
         const cleaned = privacyClean(addon);
@@ -1979,22 +1979,11 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
     desired.push({guest, row});
   }
 
-  // A daily file may omit a seating column or an individual seat row. It may
-  // update a confirmed seat, but it must never make a confirmed seat disappear
-  // merely because that row was absent or unrecognized in the export.
-  const importedGuestIds = new Set(desired.map(x => String(x.guest.id)));
-  const claimedSeats = new Set(desired.map(x => String(x.row.seat)));
-  const protectedAssignments = assignments.filter(a =>
-    claimedSeats.has(normalizeSeatId(a.seat_id) || String(a.seat_id)) &&
-    !importedGuestIds.has(String(a.guest_id))
-  );
-  if (protectedAssignments.length) {
-    const collision = protectedAssignments[0];
-    throw new Error("RezMagic assigns " + collision.seat_id + " to a different guest than the seating manager. No seats were changed.");
-  }
-  const toRelease = assignments.filter(a =>
-    importedGuestIds.has(String(a.guest_id))
-  );
+  // A RezMagic import is a complete seating snapshot. After all CSV rows have
+  // passed validation above, replace the manager's entire seat state with the
+  // imported state. This clears cancelled, moved, and stale assignments too.
+  const importedGuestIds = new Set(importedGuests.map(g => String(g.id)));
+  const toRelease = [...assignments];
   for (const assignment of toRelease) {
     await api("seat_assignments?id=eq." + encodeURIComponent(assignment.id), {method:"DELETE", headers:{Prefer:"return=minimal"}});
   }
@@ -2013,9 +2002,7 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
       body:JSON.stringify({status:"synced", verified_at:now, updated_at:now})
     });
   }
-  const preserved = importedGuests.filter(g => !importedGuestIds.has(String(g.id)))
-    .filter(g => assignments.some(a => String(a.guest_id) === String(g.id))).length;
-  return {assigned:desired.length, cleared:openChanges.length, released:toRelease.length, preserved};
+  return {assigned:desired.length, cleared:openChanges.length, released:toRelease.length};
 }
 
 // A daily RezMagic upload is authoritative for the upgrade worklists too.
@@ -2138,9 +2125,9 @@ async function executeImport() {
     await saveSnapshot("Auto · After RezMagic import · " + new Date().toLocaleString());
 
     setStatus(
-      "RezMagic import complete. " +
+      "RezMagic import complete. RezMagic is now the complete seating source: " +
       reconciliation.assigned + " assigned · " +
-      reconciliation.preserved + " existing seat(s) protected because no valid replacement was found · " +
+      reconciliation.released + " prior seat record(s) replaced · " +
       reconciliation.cleared + " queue item(s) cleared. Raw CSV was not stored.",
       "ok"
     );
