@@ -1261,12 +1261,12 @@ function renderDetails() {
     '</div><div class="rule"></div>' +
     '<div class="detailLabel">Guest to seat</div>' +
     (guestButtons || '<div class="detailText">No guests found.</div>') +
-    '<div class="detailLabel">RezMagic comments</div>' +
-    '<div class="detailText">' + esc([record?.reservation_comments, record?.guest_comments].filter(Boolean).join(" ")) + '</div>' +
     '<div class="detailLabel">Requests</div>' +
     '<div class="detailText">' + esc(requests.join(" • ") || "None") + '</div>' +
     '<div class="detailLabel">Linked reservations</div>' +
     '<div class="detailText">' + (linked.length ? linked.map(x => "#" + esc(x)).join(", ") : "None") + '</div>' +
+    '<div class="detailLabel">2026 Comments</div>' +
+    '<div class="detailText">' + esc([record?.reservation_comments, record?.guest_comments].filter(Boolean).join(" ") || "None recorded") + '</div>' +
     '<div id="history2025Mount">' + (typeof window.historical2025DetailsMarkup === "function" ? window.historical2025DetailsMarkup(selectedRez) : "") + '</div>' +
     '<div class="rule"></div>' +
     '<h3>CHRISTY + CATHY NOTES</h3>' +
