@@ -431,13 +431,13 @@ button[disabled]{opacity:.58;cursor:not-allowed}
       <section class="mapcard">
         <div class="maplegend">
           <span><i class="legendbox" style="background:var(--blue-seat);border-color:#9aace6"></i>Blue Section — Rows A–G</span>
-          <span><i class="legendbox" style="background:var(--gold-seat);border-color:#d9c566"></i>Gold Section — Rows H–CC</span>
+          <span><i class="legendbox" style="background:var(--gold-seat);border-color:#d9c566"></i>Gold Section — Rows H–DD</span>
           <span><i class="legendbox" style="background:var(--occupied)"></i>Occupied</span>
           <span><i class="legendbox moving"></i>Guest Being Moved</span>
           <span><i class="legendbox" style="outline:3px solid var(--same);background:#fff"></i>Same Reservation</span>
           <span><i class="legendbox" style="outline:3px solid var(--linked);background:#fff"></i>Linked Reservation</span>
         </div>
-        <div class="small" style="margin:0 0 7px;color:var(--muted)"><b>Official section layout:</b> Rows A–G blue; Rows H–CC gold.</div>
+        <div class="small" style="margin:0 0 7px;color:var(--muted)"><b>Official section layout:</b> Rows A–G blue; Rows H–DD gold.</div>
         <div class="stage">STAGE</div>
         <div class="rows" id="rows"></div>
 
@@ -533,7 +533,9 @@ let requestStatuses = [];
 let requestView = "suite";
 let noteSaveInFlight = false;
 
-const ROWS = ["A","B","C","D","E","F","G","H","J","K","L","M","N","P","Q","R","S","T","V","W","X","Y","Z","AA","BB","CC"];
+// Physical row order from the RezMagic seating chart.  Keep every displayed
+// row here: imported seat IDs are rendered by this exact row/seat code.
+const ROWS = ["A","B","C","D","E","F","G","H","J","K","L","M","N","P","Q","R","S","T","V","W","X","Y","Z","AA","BB","CC","DD"];
 const BLUE_ROWS = new Set(["A","B","C","D","E","F","G"]);
 const SHORT_ROWS = new Set(["Y","Z","AA","BB","CC"]);
 const OPEN_CHANGE_STATUSES = new Set(["needs_update","entered","conflict"]);
@@ -1984,14 +1986,31 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
   // imported state. This clears cancelled, moved, and stale assignments too.
   const importedGuestIds = new Set(importedGuests.map(g => String(g.id)));
   const toRelease = [...assignments];
-  for (const assignment of toRelease) {
-    await api("seat_assignments?id=eq." + encodeURIComponent(assignment.id), {method:"DELETE", headers:{Prefer:"return=minimal"}});
-  }
-  for (const {guest, row} of desired) {
-    await api("seat_assignments", {
-      method:"POST", headers:{Prefer:"return=minimal"},
-      body:JSON.stringify({seat_id:row.seat, rez_id:row.rez_id, guest_id:guest.id, guest_name:guest.guest_name, rezmagic_seat:row.seat, source_seat:row.seat, working_seat:row.seat, sync_status:"synced", updated_at:now})
-    });
+  const assignmentPayload = desired.map(({guest, row}) => ({
+    seat_id:row.seat,
+    rez_id:row.rez_id,
+    guest_id:guest.id,
+    guest_name:guest.guest_name,
+    rezmagic_seat:row.seat,
+    source_seat:row.seat,
+    working_seat:row.seat,
+    sync_status:"synced",
+    updated_at:now
+  }));
+
+  // Do not write seats one at a time. A connection failure used to leave a
+  // partially rebuilt map, which could look valid even though many RezMagic
+  // assignments had not been written. One bulk request is all-or-nothing at
+  // the database level; only report success after its seat IDs match the CSV.
+  await api("seat_assignments", {method:"DELETE", headers:{Prefer:"return=minimal"}});
+  const inserted = await api("seat_assignments", {
+    method:"POST",
+    headers:{Prefer:"return=representation"},
+    body:JSON.stringify(assignmentPayload)
+  });
+  const persistedSeats = new Set((Array.isArray(inserted) ? inserted : []).map(a => String(a.seat_id || "").toUpperCase()));
+  if (persistedSeats.size !== snapshot.bySeat.size || [...snapshot.bySeat.keys()].some(seat => !persistedSeats.has(seat))) {
+    throw new Error("RezMagic import verification failed: the database did not store the complete seating snapshot.");
   }
 
   // The CSV is the source of truth, not a second opinion about the working queue.
@@ -2132,7 +2151,7 @@ async function executeImport() {
       "ok"
     );
   } catch (error) {
-    setStatus("Import stopped: " + error.message + ". Existing queue/history was not deleted.", "warn");
+    setStatus("Import stopped: " + error.message + ". The map was reloaded from the shared database; do not treat it as current until the import reports complete.", "warn");
     await loadAll({quiet:true});
   } finally {
     isImporting = false;
