@@ -1668,7 +1668,7 @@ function parseCSV(text) {
   }
 
   if (!rawRows.length) return {headers:[], rows:[]};
-  const headers = rawRows.shift().map(x => x.trim());
+  const headers = rawRows.shift().map(x => x.replace(/^\uFEFF/, "").trim());
   const rows = rawRows.map(values =>
     Object.fromEntries(headers.map((header,index) => [header, values[index] || ""]))
   );
@@ -1691,8 +1691,11 @@ function normalizeSeatId(value) {
 }
 
 function importValue(source, names) {
+  const normalized = new Map(Object.entries(source).map(([key,value]) =>
+    [String(key).replace(/^\uFEFF/, "").trim().toLowerCase(), value]
+  ));
   for (const name of names) {
-    const value = source[name];
+    const value = normalized.get(name.toLowerCase());
     if (value !== undefined && value !== null && String(value).trim() !== "") return String(value).trim();
   }
   return "";
@@ -1802,10 +1805,12 @@ async function preflightCSV(file) {
       const addon = importValue(source, ["AddOnCategoryName"]);
       const addonProduct = importValue(source, ["AddOnProductName"]);
       const assignedSeatValue = importValue(source, ["Thursday/Friday/Saturday Assigned Seating", "Assigned Seating"]);
-      const normalizedSeat = [
-        /assigned seating/i.test(addonProduct) ? addon : "",
-        assignedSeatValue
-      ].map(normalizeSeatId).find(Boolean);
+      // RezMagic exports the physical seat in AddOnCategoryName; the
+      // product description can vary between exports. A valid seat token
+      // wins over the descriptive assigned-seating column, which can lag.
+      const addonSeat = normalizeSeatId(addon);
+      const columnSeat = normalizeSeatId(assignedSeatValue);
+      const normalizedSeat = addonSeat || columnSeat;
       if (addon && !looksLikeSeat(addon)) {
         const cleaned = privacyClean(addon);
         if (cleaned.flags.length) {
@@ -1831,6 +1836,16 @@ async function preflightCSV(file) {
       if (normalizedSeat && guestName) {
         seatRows.push({rez_id:rezId, guest_name:guestName, seat:normalizedSeat});
       }
+    }
+
+    // Reject incomplete exports before any live data is changed.
+    const validatedSeats = importedSeatSnapshot(seatRows);
+    if (!validatedSeats.bySeat.size) {
+      throw new Error("No assigned seats were found. Check RezMagic export columns; live seating was not changed.");
+    }
+    if (assignments.length >= 50 && validatedSeats.bySeat.size < assignments.length * 0.8) {
+      throw new Error("Only " + validatedSeats.bySeat.size + " assigned seats were recognized versus " + assignments.length +
+        " currently on the map. This export may be incomplete; no live seating was changed.");
     }
 
     pendingImport = {
@@ -2002,15 +2017,36 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
   // partially rebuilt map, which could look valid even though many RezMagic
   // assignments had not been written. One bulk request is all-or-nothing at
   // the database level; only report success after its seat IDs match the CSV.
-  await api("seat_assignments", {method:"DELETE", headers:{Prefer:"return=minimal"}});
-  const inserted = await api("seat_assignments", {
-    method:"POST",
-    headers:{Prefer:"return=representation"},
-    body:JSON.stringify(assignmentPayload)
-  });
-  const persistedSeats = new Set((Array.isArray(inserted) ? inserted : []).map(a => String(a.seat_id || "").toUpperCase()));
-  if (persistedSeats.size !== snapshot.bySeat.size || [...snapshot.bySeat.keys()].some(seat => !persistedSeats.has(seat))) {
-    throw new Error("RezMagic import verification failed: the database did not store the complete seating snapshot.");
+  // Preserve the prior assignments so a failed replacement can be recovered.
+  // Stop before deleting anything if the candidate snapshot looks incomplete.
+  if (!assignmentPayload.length || (assignments.length >= 50 && assignmentPayload.length < assignments.length * 0.8)) {
+    throw new Error("Incomplete RezMagic seating export: refusing to replace live seating.");
+  }
+  const previousAssignments = assignments.map(({seat_id,rez_id,guest_id,guest_name,rezmagic_seat,source_seat,working_seat,sync_status,updated_at}) => ({
+    seat_id,rez_id,guest_id,guest_name,rezmagic_seat,source_seat,working_seat,sync_status,updated_at
+  }));
+  let deletionStarted = false;
+  try {
+    deletionStarted = true;
+    await api("seat_assignments", {method:"DELETE", headers:{Prefer:"return=minimal"}});
+    await chunkedUpsert("seat_assignments", assignmentPayload, "seat_id", 100);
+    const persisted = await apiAll("seat_assignments?select=seat_id,guest_id,rez_id");
+    const expected = new Map(assignmentPayload.map(a => [String(a.seat_id).toUpperCase(), String(a.guest_id)]));
+    if (persisted.length !== expected.size || persisted.some(a =>
+      expected.get(String(a.seat_id).toUpperCase()) !== String(a.guest_id))) {
+      throw new Error("Database seating did not match the RezMagic snapshot after writing.");
+    }
+  } catch (writeError) {
+    if (deletionStarted) {
+      try {
+        await api("seat_assignments", {method:"DELETE", headers:{Prefer:"return=minimal"}});
+        await chunkedUpsert("seat_assignments", previousAssignments, "seat_id", 100);
+      } catch (restoreError) {
+        throw new Error("CRITICAL: seating import failed and automatic restore failed: " + restoreError.message +
+          ". Restore the automatic pre-import snapshot. Original error: " + writeError.message);
+      }
+    }
+    throw new Error("Seating import failed; previous assignments restored. " + writeError.message);
   }
 
   // The CSV is the source of truth, not a second opinion about the working queue.
@@ -2133,7 +2169,7 @@ async function executeImport() {
         source_of_truth:"RezMagic CSV",
         assigned_seats:reconciliation.assigned,
         released_assignments:reconciliation.released,
-        preserved_assignments:reconciliation.preserved,
+        preserved_assignments:0,
         cleared_queue_items:reconciliation.cleared,
         removed_upgrade_requests:removedUpgradeRequests.length,
         conflicts:0
