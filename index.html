@@ -700,6 +700,14 @@ function linkedRezIds(rezId) {
     if (String(id) !== String(rezId)) linked.add(String(id));
   });
 
+  // Historical 2025 links are matched to current 2026 reservation IDs.
+  // Include them in the SAME current-year linkage used by purple seat outlines,
+  // the summary, and the linked reservation list.
+  if (typeof window.historical2025LinkedRezIds === "function") {
+    window.historical2025LinkedRezIds(rezId).forEach(id => {
+      if (String(id) !== String(rezId)) linked.add(String(id));
+    });
+  }
   return [...linked].filter(id => reservations.some(r => String(r.rez_id) === String(id)));
 }
 
@@ -3456,11 +3464,14 @@ setInterval(() => {
       historicalRecords=await apiAll("historical_guest_records?select=*&event_year=eq."+HISTORY_YEAR+"&order=guest_name.asc");
       historicalLinks=await apiAll("historical_links?select=*&event_year=eq."+HISTORY_YEAR);
       historyReady=true;
+      if (typeof window.renderAll === "function") window.renderAll();
     }catch(e){console.error("Historical seating load failed",e);}
     finally{historyLoading=false;}
   }
   function recordsForRez(rezId){return historicalRecords.filter(r=>String(r.matched_rez_id||"")===String(rezId||""));}
   function linkedRezIds(rezId){const id=String(rezId||""),out=[];historicalLinks.forEach(l=>{if(String(l.matched_rez_id)===id)out.push(String(l.linked_rez_id));if(String(l.linked_rez_id)===id)out.push(String(l.matched_rez_id));});return unique(out).filter(x=>x!==id);}
+
+  window.historical2025LinkedRezIds=linkedRezIds;
 
   function historicalDetailsMarkup(rezId){
     const own=recordsForRez(rezId);
@@ -3543,7 +3554,7 @@ setInterval(() => {
     await api("historical_guest_records?event_year=eq."+HISTORY_YEAR,{method:"DELETE",headers:{Prefer:"return=minimal"}});
     await chunkedUpsert("historical_guest_records",records,"event_year,historical_rez_id,normalized_guest_name",100);
     const links=buildHistoricalLinks(records);if(links.length)await chunkedUpsert("historical_links",links,"event_year,matched_rez_id,linked_rez_id",100);
-    historicalRecords=records;historicalLinks=links;historyReady=true;scheduleHistoryRender();
+    historicalRecords=records;historicalLinks=links;historyReady=true;scheduleHistoryRender();if(typeof window.renderAll==="function")window.renderAll();
     return{records:records.length,matched:records.filter(r=>r.matched_rez_id).length,links:links.length};
   }
 
