@@ -2028,7 +2028,7 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
   let deletionStarted = false;
   try {
     deletionStarted = true;
-    await api("seat_assignments", {method:"DELETE", headers:{Prefer:"return=minimal"}});
+    await api("seat_assignments?seat_id=not.is.null", {method:"DELETE", headers:{Prefer:"return=minimal"}});
     await chunkedUpsert("seat_assignments", assignmentPayload, "seat_id", 100);
     const persisted = await apiAll("seat_assignments?select=seat_id,guest_id,rez_id");
     const expected = new Map(assignmentPayload.map(a => [String(a.seat_id).toUpperCase(), String(a.guest_id)]));
@@ -2039,7 +2039,7 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
   } catch (writeError) {
     if (deletionStarted) {
       try {
-        await api("seat_assignments", {method:"DELETE", headers:{Prefer:"return=minimal"}});
+        await api("seat_assignments?seat_id=not.is.null", {method:"DELETE", headers:{Prefer:"return=minimal"}});
         await chunkedUpsert("seat_assignments", previousAssignments, "seat_id", 100);
       } catch (restoreError) {
         throw new Error("CRITICAL: seating import failed and automatic restore failed: " + restoreError.message +
