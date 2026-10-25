@@ -3909,7 +3909,7 @@ setInterval(() => {
     document.getElementById("workspace")?.scrollIntoView({behavior:"smooth",block:"start"});
     setStatus("Opened group on the seating map. Red seats are this reservation; purple seats are its linked group.","ok");
   }
-  function groupCard(group){
+  function groupRoster(group){
     const manualMembers=membersFor(group.id);
     const memberLabels=new Map(manualMembers.map(member=>[String(member.rez_id),member.display_name]));
     // This list is a direct roster for the named group.  Do not expand through
@@ -3919,10 +3919,16 @@ setInterval(() => {
     // A named group needs at least two active reservations.  If the CSV no
     // longer contains its counterpart, do not leave a misleading one-person
     // group card behind.
-    if(members.length<2) return "";
+    if(members.length<2) return null;
     const people=members.flatMap(member=>guestsFor(member.rez_id));
     const placed=members.flatMap(member=>seatsFor(member.rez_id));
     const unseated=Math.max(0,people.length-placed.length);
+    const firstRezId=members.map(member=>String(member.rez_id)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))[0]||"";
+    return {members,people,placed,unseated,firstRezId};
+  }
+  function groupCard(group,roster=groupRoster(group)){
+    if(!roster) return "";
+    const {members,people,placed,unseated}=roster;
     const rows=members.map(member=>{
       const guests=guestsFor(member.rez_id);
       const seatCodes=seatsFor(member.rez_id).map(seat=>seat.working_seat||seat.rezmagic_seat||seat.seat_id).filter(Boolean);
@@ -3936,11 +3942,20 @@ setInterval(() => {
   }
   function showGroups(){
     document.getElementById("groupsAtGlanceModal")?.remove();
-    const named=(groups || []).slice().sort((a,b)=>String(a.group_name||"").localeCompare(String(b.group_name||"")));
+    const named=(groups || []).map(group=>({group,roster:groupRoster(group)}))
+      .filter(({roster})=>roster)
+      .sort((a,b)=>{
+        // Work the groups that still need seats first. Within that worklist,
+        // keep the lowest reservation numbers first for a predictable queue.
+        const aNeedsSeats=a.roster.unseated>0, bNeedsSeats=b.roster.unseated>0;
+        if(aNeedsSeats!==bNeedsSeats) return aNeedsSeats ? -1 : 1;
+        const rezOrder=a.roster.firstRezId.localeCompare(b.roster.firstRezId,undefined,{numeric:true});
+        return rezOrder || String(a.group.group_name||"").localeCompare(String(b.group.group_name||""));
+      });
     const modal=document.createElement("div");
     modal.id="groupsAtGlanceModal";
     modal.className="groupsGlanceModal";
-    const cards=named.map(groupCard).filter(Boolean);
+    const cards=named.map(({group,roster})=>groupCard(group,roster));
     const body=cards.length ? cards.join("") : '<div class="groupsGlanceEmpty">No active named groups have been linked yet.</div>';
     modal.innerHTML='<section class="groupsGlanceBox" role="dialog" aria-modal="true" aria-labelledby="groupsGlanceTitle"><header><div><div class="kicker">Seating check</div><h2 id="groupsGlanceTitle">Groups at a Glance</h2><p>Every named group, its guests, and their current seats. “Open on map” shows the group together with linked seats in purple.</p></div><button class="groupsGlanceClose" type="button" aria-label="Close groups list">×</button></header><div class="groupsGlanceList">'+body+'</div></section>';
     document.body.appendChild(modal);
