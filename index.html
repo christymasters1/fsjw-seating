@@ -752,7 +752,7 @@ async function loadAll({quiet=false}={}) {
   try {
     if (!quiet) setStatus("Loading shared seating data…", "busy");
     [reservations, guests, assignments, groups, groupMembers, rezChanges, notes, requestStatuses] = await Promise.all([
-      apiAll("reservations?select=*&order=rez_id.asc"),
+      apiAll("reservations?select=*&status=eq.active&order=rez_id.asc"),
       apiAll("reservation_guests?select=*&order=guest_name.asc"),
       apiAll("seat_assignments?select=*"),
       apiAll("seating_groups?select=*"),
@@ -761,6 +761,9 @@ async function loadAll({quiet=false}={}) {
       apiAll("audit_log?select=*&action=eq.reservation_note&order=created_at.asc"),
       apiAll("audit_log?select=*&action=eq.request_status&order=created_at.asc")
     ]);
+    const activeRezIds = new Set(reservations.map(record => String(record.rez_id)));
+    guests = guests.filter(guest => activeRezIds.has(String(guest.rez_id)));
+    assignments = assignments.filter(assignment => activeRezIds.has(String(assignment.rez_id)));
     lastLoad = Date.now();
 
     if (selectedRez && !reservations.some(r => String(r.rez_id) === String(selectedRez))) {
@@ -1709,6 +1712,20 @@ function importValue(source, names) {
   return "";
 }
 
+// RezMagic exports vary slightly by report, but each uses one of these
+// reservation-status headers. Keep cancelled reservations in the database for
+// audit/history without letting them consume people, seats, or worklist space.
+function importReservationStatus(source) {
+  return importValue(source, [
+    "Reservation Status", "ReservationStatus", "Rez Status", "RezStatus",
+    "Reservation State", "ReservationState", "Status"
+  ]);
+}
+function isCancelledReservationStatus(status) {
+  const value = String(status || "").trim().toLowerCase();
+  return /\b(cancelled|canceled|void(?:ed)?|deleted)\b/.test(value);
+}
+
 async function parseRezMagicFile(file) {
   const isWorkbook = /\.xlsx$/i.test(file.name) || /spreadsheetml\.sheet/i.test(file.type || "");
   if (!isWorkbook) return parseCSV(await file.text());
@@ -1761,10 +1778,13 @@ async function preflightCSV(file) {
           category_code:"",
           occupancy_number:null,
           night_count:null,
-          seat_upgrade_status:""
+          seat_upgrade_status:"",
+          statuses:new Set()
         });
       }
       const target = byRez.get(rezId);
+      const reservationStatus = importReservationStatus(source);
+      if (reservationStatus) target.statuses.add(reservationStatus);
       target.created_on = target.created_on || importValue(source, ["CreatedOn", "Create Date"]);
       target.start_date = target.start_date || importValue(source, ["AdjStartDate", "Arrival Date"]);
       target.end_date = target.end_date || importValue(source, ["AdjEndDate", "Departure Date"]);
@@ -1856,9 +1876,18 @@ async function preflightCSV(file) {
         " currently on the map. This export may be incomplete; no live seating was changed.");
     }
 
+    const cancelledRezIds = new Set(
+      [...byRez.values()]
+        .filter(rez => [...rez.statuses].some(isCancelledReservationStatus))
+        .map(rez => String(rez.rez_id))
+    );
+    const activeRezVals = [...byRez.values()].filter(rez => !cancelledRezIds.has(String(rez.rez_id)));
+    const activeSeatRows = seatRows.filter(row => !cancelledRezIds.has(String(row.rez_id)));
+
     pendingImport = {
-      rezVals:[...byRez.values()],
-      seatRows,
+      rezVals:activeRezVals,
+      seatRows:activeSeatRows,
+      cancelledRezIds:[...cancelledRezIds],
       held,
       removed,
       discardedSensitiveHeaders
@@ -1880,7 +1909,8 @@ function showPrivacyPreflight() {
   const removedCount = p.removed.email + p.removed.phone + p.removed.address + p.removed.card;
 
   $("privacyStats").innerHTML =
-    '<div class="privacy-stat"><b>' + p.rezVals.length + '</b><br>Reservations found</div>' +
+    '<div class="privacy-stat"><b>' + p.rezVals.length + '</b><br>Active reservations found</div>' +
+    '<div class="privacy-stat privacy-hold"><b>' + p.cancelledRezIds.length + '</b><br>Cancelled reservations excluded</div>' +
     '<div class="privacy-stat"><b>' + guestCount + '</b><br>Guest records found</div>' +
     '<div class="privacy-stat"><b>' + p.seatRows.length + '</b><br>Seat records found</div>' +
     '<div class="privacy-stat privacy-ok"><b>0</b><br>Email values uploaded</div>' +
@@ -2151,6 +2181,21 @@ async function executeImport() {
     }));
     await chunkedUpsert("reservations", reservationPayload, "rez_id", 100);
 
+    // The reservation remains in the shared database as a cancellation record,
+    // but is hidden from all active manager views and cannot retain a seat.
+    if (p.cancelledRezIds.length) {
+      const cancelledFilter = "in.(" + p.cancelledRezIds.map(encodeURIComponent).join(",") + ")";
+      await api("reservations?rez_id=" + cancelledFilter, {
+        method:"PATCH",
+        headers:{Prefer:"return=minimal"},
+        body:JSON.stringify({status:"cancelled", updated_at:now})
+      });
+      await api("seat_assignments?rez_id=" + cancelledFilter, {
+        method:"DELETE",
+        headers:{Prefer:"return=minimal"}
+      });
+    }
+
     const guestPayload = [];
     p.rezVals.forEach(v => v.guests.forEach(name => {
       guestPayload.push({rez_id:v.rez_id, guest_name:name});
@@ -2180,6 +2225,7 @@ async function executeImport() {
         preserved_assignments:0,
         cleared_queue_items:reconciliation.cleared,
         removed_upgrade_requests:removedUpgradeRequests.length,
+        cancelled_reservations:p.cancelledRezIds.length,
         conflicts:0
       }
     );
