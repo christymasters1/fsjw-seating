@@ -3824,7 +3824,12 @@ setInterval(() => {
   }
 
   function membersFor(groupId){
-    return (groupMembers || []).filter(member=>String(member.group_id)===String(groupId));
+    const activeRezIds=new Set((reservations || []).map(reservation=>String(reservation.rez_id)));
+    return (groupMembers || []).filter(member=>
+      String(member.group_id)===String(groupId) &&
+      String(member.status || "confirmed").toLowerCase()!=="cancelled" &&
+      activeRezIds.has(String(member.rez_id))
+    );
   }
   function seatsFor(rezId){
     return (assignments || []).filter(seat=>String(seat.rez_id)===String(rezId));
@@ -3833,13 +3838,14 @@ setInterval(() => {
     return (guests || []).filter(guest=>String(guest.rez_id)===String(rezId));
   }
   function connectedGroupRezIds(groupId){
+    const activeRezIds=new Set((reservations || []).map(reservation=>String(reservation.rez_id)));
     const seen=new Set(membersFor(groupId).map(member=>String(member.rez_id)));
     const queue=[...seen];
     while(queue.length){
       const rezId=queue.shift();
       (typeof linkedRezIds === "function" ? linkedRezIds(rezId) : []).forEach(linked=>{
         const id=String(linked);
-        if(!seen.has(id)){seen.add(id);queue.push(id);}
+        if(activeRezIds.has(id) && !seen.has(id)){seen.add(id);queue.push(id);}
       });
     }
     return [...seen].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
@@ -3857,6 +3863,7 @@ setInterval(() => {
     const manualMembers=membersFor(group.id);
     const memberLabels=new Map(manualMembers.map(member=>[String(member.rez_id),member.display_name]));
     const members=connectedGroupRezIds(group.id).map(rez_id=>({rez_id,display_name:memberLabels.get(String(rez_id))||null}));
+    if(!members.length) return "";
     const people=members.flatMap(member=>guestsFor(member.rez_id));
     const placed=members.flatMap(member=>seatsFor(member.rez_id));
     const unseated=Math.max(0,people.length-placed.length);
@@ -3877,7 +3884,8 @@ setInterval(() => {
     const modal=document.createElement("div");
     modal.id="groupsAtGlanceModal";
     modal.className="groupsGlanceModal";
-    const body=named.length ? named.map(groupCard).join("") : '<div class="groupsGlanceEmpty">No named groups have been linked yet.</div>';
+    const cards=named.map(groupCard).filter(Boolean);
+    const body=cards.length ? cards.join("") : '<div class="groupsGlanceEmpty">No active named groups have been linked yet.</div>';
     modal.innerHTML='<section class="groupsGlanceBox" role="dialog" aria-modal="true" aria-labelledby="groupsGlanceTitle"><header><div><div class="kicker">Seating check</div><h2 id="groupsGlanceTitle">Groups at a Glance</h2><p>Every named group, its guests, and their current seats. “Open on map” shows the group together with linked seats in purple.</p></div><button class="groupsGlanceClose" type="button" aria-label="Close groups list">×</button></header><div class="groupsGlanceList">'+body+'</div></section>';
     document.body.appendChild(modal);
     modal.querySelector(".groupsGlanceClose").onclick=()=>modal.remove();
