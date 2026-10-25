@@ -2204,19 +2204,6 @@ async function executeImport() {
   $("privacyModal").style.display = "none";
 
   try {
-    // A reservation manually cancelled in the manager stays cancelled even if
-    // a later export still contains it.  RezMagic's explicit cancelled status
-    // is handled during preflight; this protects staff-confirmed cancellations
-    // such as Jennings and Moreland on every future import as well.
-    const existingCancelled = await apiAll("reservations?select=rez_id&status=eq.cancelled");
-    const excludedRezIds = new Set([
-      ...p.cancelledRezIds.map(String),
-      ...existingCancelled.map(reservation => String(reservation.rez_id))
-    ]);
-    p.cancelledRezIds = [...excludedRezIds];
-    p.rezVals = p.rezVals.filter(reservation => !excludedRezIds.has(String(reservation.rez_id)));
-    p.seatRows = p.seatRows.filter(row => !excludedRezIds.has(String(row.rez_id)));
-
     setStatus("Creating automatic pre-import snapshot…", "busy");
     await saveSnapshot("Auto · Before RezMagic import · " + new Date().toLocaleString());
 
