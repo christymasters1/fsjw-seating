@@ -3878,7 +3878,6 @@ setInterval(() => {
     const activeRezIds=new Set((reservations || []).map(reservation=>String(reservation.rez_id)));
     return (groupMembers || []).filter(member=>
       String(member.group_id)===String(groupId) &&
-      String(member.status || "confirmed").toLowerCase()!=="cancelled" &&
       activeRezIds.has(String(member.rez_id))
     );
   }
