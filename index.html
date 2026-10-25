@@ -1828,6 +1828,7 @@ async function preflightCSV(file) {
           guest_comments:"",
           requests:new Set(),
           guests:new Set(),
+          guestKeys:new Set(),
           created_on:"",
           start_date:"",
           end_date:"",
@@ -1862,7 +1863,14 @@ async function preflightCSV(file) {
       }
 
       const guestName = importValue(source, ["PartyName", "Guest Name"]);
-      if (guestName) target.guests.add(guestName);
+      // RezMagic can repeat the same party name on separate add-on rows with
+      // different internal spacing. Count a person once per reservation while
+      // retaining the first readable spelling for the seating manager.
+      const guestKey = guestName.replace(/\s+/g, " ").trim().toLowerCase();
+      if (guestName && !target.guestKeys.has(guestKey)) {
+        target.guestKeys.add(guestKey);
+        target.guests.add(guestName.replace(/\s+/g, " ").trim());
+      }
 
       for (const [sourceField, targetField] of [
         ["RezComments","reservation_comments"],
