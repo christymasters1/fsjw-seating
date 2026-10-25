@@ -2238,6 +2238,27 @@ async function executeImport() {
     }));
     await chunkedUpsert("reservations", reservationPayload, "rez_id", 100);
 
+    // The RezMagic file is the complete active roster. Anything that was
+    // previously active but is absent from this import must leave the seating
+    // manager and release any seat it held; never carry a stale reservation
+    // forward from an earlier file.
+    const staleReservations = await apiAll(
+      "reservations?select=rez_id&status=eq.active&last_seen_import=neq." + encodeURIComponent(batchId)
+    );
+    const staleRezIds = staleReservations.map(reservation => String(reservation.rez_id));
+    if (staleRezIds.length) {
+      const staleFilter = "in.(" + staleRezIds.map(encodeURIComponent).join(",") + ")";
+      await api("reservations?rez_id=" + staleFilter, {
+        method:"PATCH",
+        headers:{Prefer:"return=minimal"},
+        body:JSON.stringify({status:"cancelled", updated_at:now})
+      });
+      await api("seat_assignments?rez_id=" + staleFilter, {
+        method:"DELETE",
+        headers:{Prefer:"return=minimal"}
+      });
+    }
+
     // The reservation remains in the shared database as a cancellation record,
     // but is hidden from all active manager views and cannot retain a seat.
     if (p.cancelledRezIds.length) {
