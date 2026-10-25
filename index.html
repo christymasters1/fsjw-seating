@@ -521,6 +521,7 @@ let guests = [];
 let assignments = [];
 let groups = [];
 let groupMembers = [];
+let commentLinkedRezMap = new Map();
 let rezChanges = [];
 let notes = [];
 let selectedRez = null;
@@ -683,6 +684,59 @@ function assignmentForGuest(guestId) {
   return assignments.find(a => String(a.guest_id) === String(guestId));
 }
 
+function normalizedPersonName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, " ")
+    .replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+}
+
+// Derive current-year seating relationships from RezMagic's human notes.  This
+// does not guess from a bare name: a note must contain seating language and a
+// full name or a surname that belongs to exactly one active reservation.
+function rebuildCommentLinks() {
+  const map = new Map();
+  const activeGuests = guests.filter(guest => reservations.some(record => String(record.rez_id) === String(guest.rez_id)));
+  const byRez = new Map();
+  activeGuests.forEach(guest => {
+    const rezId = String(guest.rez_id);
+    if (!byRez.has(rezId)) byRez.set(rezId, []);
+    byRez.get(rezId).push(guest);
+  });
+  const surnameRezIds = new Map();
+  activeGuests.forEach(guest => {
+    const parts = normalizedPersonName(guest.guest_name).split(" ").filter(Boolean);
+    const surname = parts.at(-1);
+    if (!surname || surname.length < 4) return;
+    if (!surnameRezIds.has(surname)) surnameRezIds.set(surname, new Set());
+    surnameRezIds.get(surname).add(String(guest.rez_id));
+  });
+  const add = (from, to) => {
+    if (from === to) return;
+    if (!map.has(from)) map.set(from, new Set());
+    if (!map.has(to)) map.set(to, new Set());
+    map.get(from).add(to); map.get(to).add(from);
+  };
+  reservations.forEach(record => {
+    const sourceRez = String(record.rez_id);
+    const text = normalizedPersonName([record.reservation_comments, record.guest_comments, ...requestList(record)].join(" "));
+    if (!text || !/\b(with|sit|seat|seating|together|near|beside|next to|group|table)\b/.test(text)) return;
+    activeGuests.forEach(candidate => {
+      const targetRez = String(candidate.rez_id);
+      if (targetRez === sourceRez) return;
+      const parts = normalizedPersonName(candidate.guest_name).split(" ").filter(Boolean);
+      const full = parts.join(" ");
+      const surname = parts.at(-1) || "";
+      const fullMatch = full.length >= 7 && (" " + text + " ").includes(" " + full + " ");
+      const uniqueSurname = surname.length >= 4 && surnameRezIds.get(surname)?.size === 1;
+      const surnameMatch = uniqueSurname && new RegExp("\\b" + surname.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&") + "\\b").test(text);
+      if (fullMatch || surnameMatch) add(sourceRez, targetRez);
+    });
+  });
+  commentLinkedRezMap = map;
+}
+
 function linkedRezIds(rezId) {
   if (!rezId) return [];
   const linked = new Set();
@@ -695,6 +749,8 @@ function linkedRezIds(rezId) {
     .forEach(x => {
       if (String(x.rez_id) !== String(rezId)) linked.add(String(x.rez_id));
     });
+
+  (commentLinkedRezMap.get(String(rezId)) || []).forEach(id => linked.add(String(id)));
 
   (PRECOMPUTED_LINKS[String(rezId)] || []).forEach(id => {
     if (String(id) !== String(rezId)) linked.add(String(id));
@@ -764,6 +820,7 @@ async function loadAll({quiet=false}={}) {
     const activeRezIds = new Set(reservations.map(record => String(record.rez_id)));
     guests = guests.filter(guest => activeRezIds.has(String(guest.rez_id)));
     assignments = assignments.filter(assignment => activeRezIds.has(String(assignment.rez_id)));
+    rebuildCommentLinks();
     lastLoad = Date.now();
 
     if (selectedRez && !reservations.some(r => String(r.rez_id) === String(selectedRez))) {
@@ -3775,6 +3832,18 @@ setInterval(() => {
   function guestsFor(rezId){
     return (guests || []).filter(guest=>String(guest.rez_id)===String(rezId));
   }
+  function connectedGroupRezIds(groupId){
+    const seen=new Set(membersFor(groupId).map(member=>String(member.rez_id)));
+    const queue=[...seen];
+    while(queue.length){
+      const rezId=queue.shift();
+      (typeof linkedRezIds === "function" ? linkedRezIds(rezId) : []).forEach(linked=>{
+        const id=String(linked);
+        if(!seen.has(id)){seen.add(id);queue.push(id);}
+      });
+    }
+    return [...seen].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  }
   function safe(value){ return typeof esc === "function" ? esc(value) : String(value ?? ""); }
   function openGroup(rezId){
     selectedRez=String(rezId);
@@ -3785,7 +3854,9 @@ setInterval(() => {
     setStatus("Opened group on the seating map. Red seats are this reservation; purple seats are its linked group.","ok");
   }
   function groupCard(group){
-    const members=membersFor(group.id).sort((a,b)=>String(a.rez_id).localeCompare(String(b.rez_id),undefined,{numeric:true}));
+    const manualMembers=membersFor(group.id);
+    const memberLabels=new Map(manualMembers.map(member=>[String(member.rez_id),member.display_name]));
+    const members=connectedGroupRezIds(group.id).map(rez_id=>({rez_id,display_name:memberLabels.get(String(rez_id))||null}));
     const people=members.flatMap(member=>guestsFor(member.rez_id));
     const placed=members.flatMap(member=>seatsFor(member.rez_id));
     const unseated=Math.max(0,people.length-placed.length);
