@@ -2286,6 +2286,27 @@ async function executeImport() {
     const removedUpgradeRequests = await reconcileRemovedUpgradeRequests(importedRezIds, now);
     const reconciliation = await applyAuthoritativeRezMagicSeats(p.seatRows, importedRezIds, now);
 
+    // Reconcile people within an otherwise active reservation too.  A CSV may
+    // remove or rename a guest while retaining the reservation number; those
+    // old guest rows cannot remain in the manager or inflate its guest count.
+    // Seats have already been rebuilt from the CSV before these stale guests
+    // are removed, so no current assignment can be deleted here.
+    const importedGuestKeys = new Set(guestPayload.map(guest =>
+      String(guest.rez_id) + "\u0000" + String(guest.guest_name).trim().toLowerCase()
+    ));
+    const staleGuestIds = guests
+      .filter(guest => importedRezIds.has(String(guest.rez_id)))
+      .filter(guest => !importedGuestKeys.has(
+        String(guest.rez_id) + "\u0000" + String(guest.guest_name).trim().toLowerCase()
+      ))
+      .map(guest => String(guest.id));
+    for (let index = 0; index < staleGuestIds.length; index += 100) {
+      const guestFilter = "in.(" + staleGuestIds.slice(index, index + 100).map(encodeURIComponent).join(",") + ")";
+      await api("reservation_guests?id=" + guestFilter, {
+        method:"DELETE", headers:{Prefer:"return=minimal"}
+      });
+    }
+
     await audit(
       "rezmagic_csv_import",
       "import_batch",
@@ -2304,6 +2325,7 @@ async function executeImport() {
         cleared_queue_items:reconciliation.cleared,
         removed_upgrade_requests:removedUpgradeRequests.length,
         cancelled_reservations:p.cancelledRezIds.length,
+        removed_guest_records:staleGuestIds.length,
         conflicts:0
       }
     );
