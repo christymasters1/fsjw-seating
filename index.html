@@ -3916,7 +3916,10 @@ setInterval(() => {
     // relationship hints here: those hints are intentionally broad for map
     // highlighting and can connect several otherwise separate seating groups.
     const members=manualMembers.map(member=>({rez_id:String(member.rez_id),display_name:memberLabels.get(String(member.rez_id))||null}));
-    if(!members.length) return "";
+    // A named group needs at least two active reservations.  If the CSV no
+    // longer contains its counterpart, do not leave a misleading one-person
+    // group card behind.
+    if(members.length<2) return "";
     const people=members.flatMap(member=>guestsFor(member.rez_id));
     const placed=members.flatMap(member=>seatsFor(member.rez_id));
     const unseated=Math.max(0,people.length-placed.length);
