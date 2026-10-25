@@ -3862,7 +3862,10 @@ setInterval(() => {
   function groupCard(group){
     const manualMembers=membersFor(group.id);
     const memberLabels=new Map(manualMembers.map(member=>[String(member.rez_id),member.display_name]));
-    const members=connectedGroupRezIds(group.id).map(rez_id=>({rez_id,display_name:memberLabels.get(String(rez_id))||null}));
+    // This list is a direct roster for the named group.  Do not expand through
+    // relationship hints here: those hints are intentionally broad for map
+    // highlighting and can connect several otherwise separate seating groups.
+    const members=manualMembers.map(member=>({rez_id:String(member.rez_id),display_name:memberLabels.get(String(member.rez_id))||null}));
     if(!members.length) return "";
     const people=members.flatMap(member=>guestsFor(member.rez_id));
     const placed=members.flatMap(member=>seatsFor(member.rez_id));
