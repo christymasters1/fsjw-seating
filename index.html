@@ -2294,10 +2294,8 @@ async function executeImport() {
         headers:{Prefer:"return=minimal"},
         body:JSON.stringify({status:"cancelled", updated_at:now})
       });
-      await api("seat_assignments?rez_id=" + staleFilter, {
-        method:"DELETE",
-        headers:{Prefer:"return=minimal"}
-      });
+      // Seat assignments are replaced only after the complete CSV seat snapshot
+      // is validated, so a failed import cannot prematurely erase these seats.
     }
 
     // The reservation remains in the shared database as a cancellation record,
@@ -2309,10 +2307,8 @@ async function executeImport() {
         headers:{Prefer:"return=minimal"},
         body:JSON.stringify({status:"cancelled", updated_at:now})
       });
-      await api("seat_assignments?rez_id=" + cancelledFilter, {
-        method:"DELETE",
-        headers:{Prefer:"return=minimal"}
-      });
+      // The authoritative full-seat replacement below releases these seats
+      // after all guest and seat references have been validated.
     }
 
     const guestPayload = [];
