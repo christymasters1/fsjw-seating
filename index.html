@@ -2078,7 +2078,7 @@ function importedSeatSnapshot(rows) {
   const byGuest = new Map();
   const bySeat = new Map();
   for (const row of rows) {
-    const guestKey = String(row.rez_id) + "\u0000" + String(row.guest_name).trim().toLowerCase();
+    const guestKey = String(row.rez_id) + "\u0000" + String(row.guest_name).replace(/\s+/g, " ").trim().toLowerCase();
     const seatKey = String(row.seat).trim().toUpperCase();
     if (byGuest.has(guestKey)) throw new Error("The RezMagic CSV lists " + row.guest_name + " more than once with a seat.");
     if (bySeat.has(seatKey)) throw new Error("The RezMagic CSV assigns " + seatKey + " to more than one guest.");
@@ -2091,7 +2091,7 @@ function importedSeatSnapshot(rows) {
 async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
   const snapshot = importedSeatSnapshot(rows);
   const importedGuests = guests.filter(g => importedRezIds.has(String(g.rez_id)));
-  const guestByKey = new Map(importedGuests.map(g => [String(g.rez_id) + "\u0000" + String(g.guest_name).trim().toLowerCase(), g]));
+  const guestByKey = new Map(importedGuests.map(g => [String(g.rez_id) + "\u0000" + String(g.guest_name).replace(/\s+/g, " ").trim().toLowerCase(), g]));
   const desired = [];
   for (const [guestKey, row] of snapshot.byGuest) {
     const guest = guestByKey.get(guestKey);
@@ -2282,6 +2282,24 @@ async function executeImport() {
       });
     }
 
+    // Verify every seat belongs to a guest in this same CSV before making any
+    // database changes. RezMagic may insert extra whitespace in party names on
+    // different add-on rows; compare canonical names, not raw strings.
+    const canonicalGuest = name => String(name || "").replace(/\s+/g, " ").trim().toLowerCase();
+    const rosterKeys = new Set();
+    p.rezVals.forEach(v => v.guests.forEach(name =>
+      rosterKeys.add(String(v.rez_id) + "\u0000" + canonicalGuest(name))
+    ));
+    const unmatchedSeats = p.seatRows.filter(row =>
+      !rosterKeys.has(String(row.rez_id) + "\u0000" + canonicalGuest(row.guest_name))
+    );
+    if (unmatchedSeats.length) {
+      throw new Error("RezMagic seating has " + unmatchedSeats.length +
+        " unmatched guest row(s), starting with " + unmatchedSeats[0].guest_name +
+        " on reservation #" + unmatchedSeats[0].rez_id +
+        ". No seats were replaced. Please check the export.");
+    }
+
     const guestPayload = [];
     p.rezVals.forEach(v => v.guests.forEach(name => {
       guestPayload.push({rez_id:v.rez_id, guest_name:name});
@@ -2300,12 +2318,12 @@ async function executeImport() {
     // Seats have already been rebuilt from the CSV before these stale guests
     // are removed, so no current assignment can be deleted here.
     const importedGuestKeys = new Set(guestPayload.map(guest =>
-      String(guest.rez_id) + "\u0000" + String(guest.guest_name).trim().toLowerCase()
+      String(guest.rez_id) + "\u0000" + String(guest.guest_name).replace(/\s+/g, " ").trim().toLowerCase()
     ));
     const staleGuestIds = guests
       .filter(guest => importedRezIds.has(String(guest.rez_id)))
       .filter(guest => !importedGuestKeys.has(
-        String(guest.rez_id) + "\u0000" + String(guest.guest_name).trim().toLowerCase()
+        String(guest.rez_id) + "\u0000" + String(guest.guest_name).replace(/\s+/g, " ").trim().toLowerCase()
       ))
       .map(guest => String(guest.id));
     for (let index = 0; index < staleGuestIds.length; index += 100) {
