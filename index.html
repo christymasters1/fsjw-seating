@@ -2091,7 +2091,14 @@ function importedSeatSnapshot(rows) {
 async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
   const snapshot = importedSeatSnapshot(rows);
   const importedGuests = guests.filter(g => importedRezIds.has(String(g.rez_id)));
-  const guestByKey = new Map(importedGuests.map(g => [String(g.rez_id) + "\u0000" + String(g.guest_name).replace(/\s+/g, " ").trim().toLowerCase(), g]));
+  const guestByKey = new Map();
+  for (const g of importedGuests) {
+    const key = String(g.rez_id) + "\u0000" + String(g.guest_name).replace(/\s+/g, " ").trim().toLowerCase();
+    if (guestByKey.has(key) && String(guestByKey.get(key).id) !== String(g.id)) {
+      throw new Error("Ambiguous guest records for " + g.guest_name + " on reservation #" + g.rez_id + ". No seating was replaced.");
+    }
+    guestByKey.set(key, g);
+  }
   const desired = [];
   for (const [guestKey, row] of snapshot.byGuest) {
     const guest = guestByKey.get(guestKey);
@@ -2212,6 +2219,32 @@ async function executeImport() {
   $("privacyModal").style.display = "none";
 
   try {
+    // Verify every seat belongs to a guest in this same CSV before making any
+    // database changes. RezMagic may insert extra whitespace in party names on
+    // different add-on rows; compare canonical names, not raw strings.
+    const canonicalGuest = name => String(name || "").replace(/\s+/g, " ").trim().toLowerCase();
+    const rosterKeys = new Set();
+    p.rezVals.forEach(v => v.guests.forEach(name =>
+      rosterKeys.add(String(v.rez_id) + "\u0000" + canonicalGuest(name))
+    ));
+    const unmatchedSeats = p.seatRows.filter(row =>
+      !rosterKeys.has(String(row.rez_id) + "\u0000" + canonicalGuest(row.guest_name))
+    );
+    if (unmatchedSeats.length) {
+      throw new Error("RezMagic seating has " + unmatchedSeats.length +
+        " unmatched guest row(s), starting with " + unmatchedSeats[0].guest_name +
+        " on reservation #" + unmatchedSeats[0].rez_id +
+        ". No seats were replaced. Please check the export.");
+    }
+
+    const seatSnapshot = importedSeatSnapshot(p.seatRows);
+    if (!seatSnapshot.bySeat.size || (assignments.length >= 50 && seatSnapshot.bySeat.size < assignments.length * 0.8)) {
+      throw new Error("Incomplete RezMagic seating export. No live data was changed.");
+    }
+    const csvGuestCount = p.rezVals.reduce((n,v) => n + v.guests.size, 0);
+    if (!csvGuestCount || p.seatRows.length > csvGuestCount) {
+      throw new Error("RezMagic seating exceeds the active guest roster. No live data was changed.");
+    }
     setStatus("Creating automatic pre-import snapshot…", "busy");
     await saveSnapshot("Auto · Before RezMagic import · " + new Date().toLocaleString());
 
@@ -2280,24 +2313,6 @@ async function executeImport() {
         method:"DELETE",
         headers:{Prefer:"return=minimal"}
       });
-    }
-
-    // Verify every seat belongs to a guest in this same CSV before making any
-    // database changes. RezMagic may insert extra whitespace in party names on
-    // different add-on rows; compare canonical names, not raw strings.
-    const canonicalGuest = name => String(name || "").replace(/\s+/g, " ").trim().toLowerCase();
-    const rosterKeys = new Set();
-    p.rezVals.forEach(v => v.guests.forEach(name =>
-      rosterKeys.add(String(v.rez_id) + "\u0000" + canonicalGuest(name))
-    ));
-    const unmatchedSeats = p.seatRows.filter(row =>
-      !rosterKeys.has(String(row.rez_id) + "\u0000" + canonicalGuest(row.guest_name))
-    );
-    if (unmatchedSeats.length) {
-      throw new Error("RezMagic seating has " + unmatchedSeats.length +
-        " unmatched guest row(s), starting with " + unmatchedSeats[0].guest_name +
-        " on reservation #" + unmatchedSeats[0].rez_id +
-        ". No seats were replaced. Please check the export.");
     }
 
     const guestPayload = [];
