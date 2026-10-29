@@ -3906,6 +3906,7 @@ setInterval(() => {
 <script>
 /* Named seating groups: a fast, read-only check before the team places or moves seats. */
 (function(){
+  const isGroupsWindow=new URLSearchParams(location.search).get("view")==="groups";
   function groupButton(){
     const actions=document.querySelector(".actions");
     if(!actions || document.getElementById("groupsAtGlance")) return;
@@ -3913,7 +3914,11 @@ setInterval(() => {
     button.id="groupsAtGlance";
     button.type="button";
     button.textContent="Groups at a Glance";
-    button.addEventListener("click",showGroups);
+    button.addEventListener("click",()=>{
+      const groupsUrl=new URL(location.href);
+      groupsUrl.searchParams.set("view","groups");
+      window.open(groupsUrl.toString(),"_blank","noopener");
+    });
     const changes=document.getElementById("changes");
     if(changes) changes.insertAdjacentElement("beforebegin",button);
     else actions.appendChild(button);
@@ -3934,6 +3939,13 @@ setInterval(() => {
   }
   function reservationFor(rezId){
     return (reservations || []).find(reservation=>String(reservation.rez_id)===String(rezId));
+  }
+  function reservationDateFor(rezId){
+    const reservation=reservationFor(rezId)||{};
+    const raw=reservation.reservation_date||reservation.date_reserved||reservation.reserved_at||reservation.rez_date||reservation.booking_date||reservation.created_at||"";
+    if(!raw)return "—";
+    const date=new Date(raw);
+    return Number.isNaN(date.getTime())?String(raw):date.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
   }
   function groupComments(rezId){
     const reservation=reservationFor(rezId)||{};
@@ -3960,6 +3972,11 @@ setInterval(() => {
   }
   function safe(value){ return typeof esc === "function" ? esc(value) : String(value ?? ""); }
   function openGroup(rezId){
+    if(isGroupsWindow){
+      localStorage.setItem("fsjw_open_map_request",JSON.stringify({rezId:String(rezId),requestedAt:Date.now()}));
+      setStatus("Sent reservation #"+rezId+" to the seating-map tab.","ok");
+      return;
+    }
     selectedRez=String(rezId);
     selectedGuest=guestsFor(selectedRez)[0]?.id || null;
     closeGroupsPage();
@@ -3992,12 +4009,12 @@ setInterval(() => {
     const rows=members.map(member=>{
       const guests=guestsFor(member.rez_id);
       const seatCodes=seatsFor(member.rez_id).map(seat=>seat.working_seat||seat.rezmagic_seat||seat.seat_id).filter(Boolean);
-      return '<tr><td><b>#'+safe(member.rez_id)+'</b></td><td>'+safe(guests.map(guest=>guest.guest_name).join(" / ")||member.display_name||"Guest name not available")+'</td><td>'+safe(seatCodes.join(" · ")||"Not seated")+'</td><td>'+groupComments(member.rez_id)+'</td></tr>';
+      return '<tr><td><b>#'+safe(member.rez_id)+'</b></td><td>'+safe(reservationDateFor(member.rez_id))+'</td><td>'+safe(guests.map(guest=>guest.guest_name).join(" / ")||member.display_name||"Guest name not available")+'</td><td>'+safe(seatCodes.join(" · ")||"Not seated")+'</td><td>'+groupComments(member.rez_id)+'</td></tr>';
     }).join("");
     return '<article class="groupsGlanceCard">'+
-      '<div class="groupsGlanceHead"><div><div class="kicker">Named seating group</div><h3>'+safe(group.group_name||"Unnamed group")+'</h3>'+(group.notes?'<p>'+safe(group.notes)+'</p>':"")+'</div><button type="button" data-open-group="'+safe(members[0]?.rez_id||"")+'">Open on map</button></div>'+
+      '<div class="groupsGlanceHead"><div><div class="kicker">Named seating group</div><h3>'+safe(group.group_name||"Unnamed group")+'</h3>'+(group.notes?'<p>'+safe(group.notes)+'</p>':"")+'</div><button type="button" data-open-group="'+safe(members[0]?.rez_id||"")+'">'+(isGroupsWindow?"Show on map tab":"Open on map")+'</button></div>'+
       '<div class="groupsGlanceStats"><span><b>'+members.length+'</b> reservations</span><span><b>'+people.length+'</b> guests</span><span class="'+(unseated?'warn':'ok')+'"><b>'+unseated+'</b> unseated</span></div>'+
-      '<div class="groupsGlanceScroll"><table><thead><tr><th>Rez #</th><th>Guests</th><th>Seats</th><th>Comments</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      '<div class="groupsGlanceScroll"><table><thead><tr><th>Rez #</th><th>Rez Date</th><th>Guests</th><th>Seats</th><th>Comments</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
     '</article>';
   }
   function showGroups(){
@@ -4017,10 +4034,13 @@ setInterval(() => {
     page.className="groupsGlancePage";
     const cards=named.map(({group,roster})=>groupCard(group,roster));
     const body=cards.length ? cards.join("") : '<div class="groupsGlanceEmpty">No active named groups have been linked yet.</div>';
-    page.innerHTML='<header class="groupsGlancePageHead"><div><div class="kicker">Seating workspace</div><h2 id="groupsGlanceTitle">Groups at a Glance</h2><p>Every named group, its guests, current seats, and 2026 / 2025 comments. Open a group to seat it on the map.</p></div><button class="groupsGlanceBack" type="button">← Back to Seating Manager</button></header><div class="groupsGlanceList">'+body+'</div>';
+    page.innerHTML='<header class="groupsGlancePageHead"><div><div class="kicker">Seating workspace</div><h2 id="groupsGlanceTitle">Groups at a Glance</h2><p>Every named group, its guests, reservation dates, current seats, and 2026 / 2025 comments. Open a group to seat it on the map.</p></div><button class="groupsGlanceBack" type="button">'+(isGroupsWindow?"Close Groups":"← Back to Seating Manager")+'</button></header><div class="groupsGlanceList">'+body+'</div>';
     document.querySelector("#app .app")?.appendChild(page);
     document.body.classList.add("groupsGlancePageOpen");
-    page.querySelector(".groupsGlanceBack").onclick=closeGroupsPage;
+    page.querySelector(".groupsGlanceBack").onclick=()=>{
+      if(isGroupsWindow){window.close();if(!window.closed)location.href=location.pathname;}
+      else closeGroupsPage();
+    };
     page.addEventListener("click",event=>{
       const button=event.target.closest("[data-open-group]");
       if(button?.dataset.openGroup) openGroup(button.dataset.openGroup);
@@ -4035,11 +4055,30 @@ setInterval(() => {
   const style=document.createElement("style");
   style.textContent=`
     .actions>#groupsAtGlance{order:21;border-color:#7c4db4;background:#f8f3ff;color:#49226f}
-    .groupsGlancePageOpen #app .app>:not(#groupsAtGlancePage){display:none!important}.groupsGlancePage{max-width:1500px;margin:0 auto;padding:8px 0 36px}.groupsGlancePageHead{display:flex;align-items:flex-start;justify-content:space-between;gap:22px;background:#fff;border-bottom:1px solid var(--line);padding:14px 0 18px}.groupsGlancePageHead h2{margin:3px 0 0;color:var(--navy);font-size:32px}.groupsGlancePageHead p{margin:8px 0 0;max-width:900px;color:var(--muted);font-size:16px;line-height:1.45}.groupsGlanceBack{flex:none;border:1px solid #cbb4e5;background:#f8f3ff;color:#49226f;border-radius:8px;padding:10px 13px;font-size:13px;font-weight:800}.groupsGlanceList{display:grid;gap:16px;margin-top:18px}.groupsGlanceCard{border:1px solid var(--line);border-left:6px solid var(--linked);border-radius:11px;padding:18px;background:#fff}.groupsGlanceHead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.groupsGlanceHead h3{margin:3px 0 0;color:var(--navy);font-size:23px}.groupsGlanceHead p{margin:7px 0 0;color:var(--muted);font-size:14px;line-height:1.45}.groupsGlanceHead button{flex:none;border:1px solid #cbb4e5;background:#f8f3ff;color:#49226f;border-radius:8px;padding:9px 12px;font-size:12px;font-weight:800}.groupsGlanceStats{display:flex;flex-wrap:wrap;gap:9px;margin:15px 0}.groupsGlanceStats span{border-radius:999px;background:#f4f6f9;color:var(--navy);padding:6px 10px;font-size:13px}.groupsGlanceStats span.warn{background:#fff0d9;color:#895600}.groupsGlanceStats span.ok{background:#e8f6ee;color:#17653d}.groupsGlanceScroll{overflow:auto}.groupsGlanceScroll table{width:100%;border-collapse:collapse;min-width:1120px;font-size:14px}.groupsGlanceScroll th,.groupsGlanceScroll td{border-top:1px solid var(--line);padding:11px 10px;text-align:left;vertical-align:top;line-height:1.4}.groupsGlanceScroll th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}.groupsGlanceScroll td:first-child{width:150px}.groupsGlanceScroll td:nth-child(2){width:31%}.groupsGlanceScroll td:nth-child(3){width:150px}.groupsGlanceScroll td:last-child{min-width:360px}.groupsGlanceComment{margin:0 0 9px;line-height:1.45}.groupsGlanceComment:last-child{margin-bottom:0}.groupsGlanceComment b{display:block;color:var(--navy);font-size:11px;letter-spacing:.04em;margin-bottom:2px}.groupsGlanceNoComment{color:var(--muted);font-size:13px}.groupsGlanceEmpty{padding:20px;color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:8px;background:#fff}
+    .groupsGlancePageOpen #app .app>:not(#groupsAtGlancePage){display:none!important}.groupsGlancePage{max-width:1500px;margin:0 auto;padding:8px 0 36px}.groupsGlancePageHead{display:flex;align-items:flex-start;justify-content:space-between;gap:22px;background:#fff;border-bottom:1px solid var(--line);padding:14px 0 18px}.groupsGlancePageHead h2{margin:3px 0 0;color:var(--navy);font-size:32px}.groupsGlancePageHead p{margin:8px 0 0;max-width:900px;color:var(--muted);font-size:16px;line-height:1.45}.groupsGlanceBack{flex:none;border:1px solid #cbb4e5;background:#f8f3ff;color:#49226f;border-radius:8px;padding:10px 13px;font-size:13px;font-weight:800}.groupsGlanceList{display:grid;gap:16px;margin-top:18px}.groupsGlanceCard{border:1px solid var(--line);border-left:6px solid var(--linked);border-radius:11px;padding:18px;background:#fff}.groupsGlanceHead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.groupsGlanceHead h3{margin:3px 0 0;color:var(--navy);font-size:23px}.groupsGlanceHead p{margin:7px 0 0;color:var(--muted);font-size:14px;line-height:1.45}.groupsGlanceHead button{flex:none;border:1px solid #cbb4e5;background:#f8f3ff;color:#49226f;border-radius:8px;padding:9px 12px;font-size:12px;font-weight:800}.groupsGlanceStats{display:flex;flex-wrap:wrap;gap:9px;margin:15px 0}.groupsGlanceStats span{border-radius:999px;background:#f4f6f9;color:var(--navy);padding:6px 10px;font-size:13px}.groupsGlanceStats span.warn{background:#fff0d9;color:#895600}.groupsGlanceStats span.ok{background:#e8f6ee;color:#17653d}.groupsGlanceScroll{overflow:auto}.groupsGlanceScroll table{width:100%;border-collapse:collapse;min-width:1280px;font-size:14px}.groupsGlanceScroll th,.groupsGlanceScroll td{border-top:1px solid var(--line);padding:11px 10px;text-align:left;vertical-align:top;line-height:1.4}.groupsGlanceScroll th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}.groupsGlanceScroll td:first-child{width:135px}.groupsGlanceScroll td:nth-child(2){width:135px;white-space:nowrap}.groupsGlanceScroll td:nth-child(3){width:28%}.groupsGlanceScroll td:nth-child(4){width:150px}.groupsGlanceScroll td:last-child{min-width:360px}.groupsGlanceComment{margin:0 0 9px;line-height:1.45}.groupsGlanceComment:last-child{margin-bottom:0}.groupsGlanceComment b{display:block;color:var(--navy);font-size:11px;letter-spacing:.04em;margin-bottom:2px}.groupsGlanceNoComment{color:var(--muted);font-size:13px}.groupsGlanceEmpty{padding:20px;color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:8px;background:#fff}
     @media(max-width:700px){.groupsGlancePage{padding:0 0 24px}.groupsGlancePageHead{display:block}.groupsGlancePageHead h2{font-size:26px}.groupsGlancePageHead p{font-size:14px}.groupsGlanceBack{margin-top:12px}.groupsGlanceHead{display:block}.groupsGlanceHead button{margin-top:12px}}
   `;
   document.head.appendChild(style);
   groupButton();
+  window.addEventListener("storage",event=>{
+    if(isGroupsWindow || event.key!=="fsjw_open_map_request" || !event.newValue)return;
+    try{
+      const request=JSON.parse(event.newValue),rezId=String(request.rezId||"");
+      if(!rezId)return;
+      selectedRez=rezId;
+      selectedGuest=guestsFor(rezId)[0]?.id||null;
+      renderAll();
+      document.getElementById("workspace")?.scrollIntoView({behavior:"smooth",block:"start"});
+      setStatus("Opened reservation #"+rezId+" from Groups at a Glance.","ok");
+    }catch(error){console.error("Could not open reservation from groups tab",error);}
+  });
+  if(isGroupsWindow){
+    const priorRenderAll=window.renderAll;
+    window.renderAll=function(){
+      priorRenderAll();
+      if(!document.getElementById("groupsAtGlancePage")) showGroups();
+    };
+  }
 })();
 </script>
 
