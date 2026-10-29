@@ -1234,12 +1234,12 @@ function renderReservationList() {
     return searchable.includes(query);
   }).sort((a,b) => String(a.rez_id).localeCompare(String(b.rez_id), undefined, {numeric:true, sensitivity:"base"}));
 
-  $("resultCount").textContent = Math.min(rows.length, 5) + " of " + rows.length + (query ? " shown" : " unseated");
+  $("resultCount").textContent = Math.min(rows.length, 15) + " of " + rows.length + (query ? " shown" : " unseated");
   const box = $("rezlist");
   box.innerHTML = "";
 
   const fragment = document.createDocumentFragment();
-  rows.slice(0, 5).forEach(r => {
+  rows.slice(0, 15).forEach(r => {
     const id = String(r.rez_id);
     const gs = rezGuests(id);
     const seatCount = rezSeats(id).length;
