@@ -2625,13 +2625,9 @@ function renderWorkQueue() {
   const queues = {suite:workQueueRows("suite"),ada:workQueueRows("ada"),king:workQueueRows("king"),group:workQueueRows("group")};
   $("suiteWorkBadge").textContent=queues.suite.length; $("adaWorkBadge").textContent=queues.ada.length; $("kingWorkBadge").textContent=queues.king.length; $("groupWorkBadge").textContent=queues.group.length;
   document.querySelectorAll("[data-work-mode]").forEach(button => {button.classList.toggle("active",button.dataset.workMode===requestView);button.onclick=()=>{requestView=button.dataset.workMode===requestView?"":button.dataset.workMode;localStorage.setItem("fsjw_work_mode",requestView||"");renderAll();};});
-  if (!requestView) return;
-  const rows=queues[requestView]||[], label=requestView==="suite"?"Work Suites":requestView==="ada"?"ADA Upgrades":requestView==="king"?"King Upgrades":"Group Seating";
-  heading.textContent=label; count.textContent=Math.min(rows.length,5)+" of "+rows.length+" shown";
-  list.innerHTML=rows.slice(0,5).map((row,index)=>{const rezId=String(row.rez_id||row.dateRecord?.rez_id||""),names=requestView==="group"?String(row.names||""):rezGuests(rezId).map(g=>g.guest_name).join(" / "),type=requestView==="ada"||requestView==="king"?"room":requestView,record=reservations.find(r=>String(r.rez_id)===rezId);return '<article class="rightWorkCard" data-work-rez="'+esc(rezId)+'"><div class="rightWorkTop"><b>'+(index===0?"WORK NOW · ":"")+"#"+esc(rezId)+'</b><span>'+esc(String(latestRequestStatus(rezId,type)).replace(/_/g," "))+'</span></div><div class="rightWorkNames">'+esc(names||"No guest name")+'</div><div class="rightWorkRequest">'+esc(requestView==="group"?((row.memberIds?.length||1)+" linked reservations"):(requestText(record)||"Request"))+'</div><div class="rightWorkActions"><button type="button" data-open-rez="'+esc(rezId)+'">Open</button><button type="button" class="rightWorkComplete" data-type="'+esc(type)+'" data-rez="'+esc(rezId)+'">Request Complete</button></div></article>';}).join("")||'<div class="empty">Nothing pending in this queue.</div>';
-  list.querySelectorAll("[data-open-rez]").forEach(button=>button.onclick=()=>openSearchedReservation(button.dataset.openRez));
-  list.querySelectorAll(".rightWorkCard").forEach(card=>card.onclick=event=>{if(!event.target.closest("button"))openSearchedReservation(card.dataset.workRez);});
-  list.querySelectorAll(".rightWorkComplete").forEach(button=>button.onclick=()=>resolveWorkRequest(button.dataset.rez,button.dataset.type));
+  // The right-side home widget is permanently the seating order. Suite and
+  // upgrade modes have their own controls and must never replace Seat Next.
+  heading.textContent="Seat Next";
 }
 
 setInterval(() => {
@@ -3053,10 +3049,7 @@ setInterval(() => {
     if(!queueMode||!cardsHost) return;
     const rightRail=document.getElementById("rightReservationRail");
     if(searchMode) searchMode.style.display="block";
-    if(rightRail){
-      rightRail.classList.toggle("workQueueOpen",!!requestView);
-      if(requestView&&queueMode.parentElement!==rightRail) rightRail.insertBefore(queueMode,rightRail.firstChild);
-    }
+    if(rightRail) rightRail.classList.remove("workQueueOpen");
     const suiteActive=activeWorkRows("suite"),adaActive=activeWorkRows("ada"),kingActive=activeWorkRows("king"),groupActive=activeWorkRows("group");
     const sb=document.getElementById("suiteWorkBadge"),ab=document.getElementById("adaWorkBadge"),kb=document.getElementById("kingWorkBadge"),gb=document.getElementById("groupWorkBadge");if(sb)sb.textContent=suiteActive.length;if(ab)ab.textContent=adaActive.length;if(kb)kb.textContent=kingActive.length;if(gb)gb.textContent=groupActive.length;
     document.querySelectorAll("[data-work-mode]").forEach(button=>{button.classList.toggle("active",button.dataset.workMode===requestView);button.onclick=()=>{requestView=button.dataset.workMode;localStorage.setItem("fsjw_work_mode",requestView);workSearch="";const rows=activeWorkRows(requestView);if(rows.length&&!new Set(rows.map(workRowRezId)).has(String(selectedRez))){selectedRez=String(workRowRezId(rows[0]));const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;}renderAll();};});
