@@ -3951,7 +3951,9 @@ setInterval(() => {
     // This list is a direct roster for the named group.  Do not expand through
     // relationship hints here: those hints are intentionally broad for map
     // highlighting and can connect several otherwise separate seating groups.
-    const members=manualMembers.map(member=>({rez_id:String(member.rez_id),display_name:memberLabels.get(String(member.rez_id))||null}));
+    const members=manualMembers
+      .map(member=>({rez_id:String(member.rez_id),display_name:memberLabels.get(String(member.rez_id))||null}))
+      .sort((a,b)=>a.rez_id.localeCompare(b.rez_id,undefined,{numeric:true}));
     // A named group needs at least two active reservations.  If the CSV no
     // longer contains its counterpart, do not leave a misleading one-person
     // group card behind.
