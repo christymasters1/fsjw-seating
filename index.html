@@ -3662,6 +3662,12 @@ setInterval(() => {
   function linkedRezIds(rezId){const id=String(rezId||""),out=[];historicalLinks.forEach(l=>{if(String(l.matched_rez_id)===id)out.push(String(l.linked_rez_id));if(String(l.linked_rez_id)===id)out.push(String(l.matched_rez_id));});return unique(out).filter(x=>x!==id);}
 
   window.historical2025LinkedRezIds=linkedRezIds;
+  window.historical2025CommentsForRez=function(rezId){
+    if(!historyReady)return [];
+    return unique(recordsForRez(rezId)
+      .flatMap(record=>[record.reservation_comments,record.guest_comments])
+      .map(comment=>String(comment||"").trim()));
+  };
 
   function historicalDetailsMarkup(rezId){
     const own=recordsForRez(rezId);
@@ -3923,6 +3929,19 @@ setInterval(() => {
   function guestsFor(rezId){
     return (guests || []).filter(guest=>String(guest.rez_id)===String(rezId));
   }
+  function reservationFor(rezId){
+    return (reservations || []).find(reservation=>String(reservation.rez_id)===String(rezId));
+  }
+  function groupComments(rezId){
+    const reservation=reservationFor(rezId)||{};
+    const comments2026=[reservation.reservation_comments,reservation.guest_comments]
+      .map(comment=>String(comment||"").trim()).filter(Boolean);
+    const comments2025=typeof window.historical2025CommentsForRez === "function"
+      ? window.historical2025CommentsForRez(rezId) : [];
+    const year=(label,comments)=>comments.length
+      ? '<div class="groupsGlanceComment"><b>'+label+'</b>'+safe(comments.join(" · "))+'</div>' : "";
+    return year("2026",comments2026)+year("2025",comments2025) || '<span class="groupsGlanceNoComment">None recorded</span>';
+  }
   function connectedGroupRezIds(groupId){
     const activeRezIds=new Set((reservations || []).map(reservation=>String(reservation.rez_id)));
     const seen=new Set(membersFor(groupId).map(member=>String(member.rez_id)));
@@ -3970,12 +3989,12 @@ setInterval(() => {
     const rows=members.map(member=>{
       const guests=guestsFor(member.rez_id);
       const seatCodes=seatsFor(member.rez_id).map(seat=>seat.working_seat||seat.rezmagic_seat||seat.seat_id).filter(Boolean);
-      return '<tr><td><b>#'+safe(member.rez_id)+'</b></td><td>'+safe(guests.map(guest=>guest.guest_name).join(" / ")||member.display_name||"Guest name not available")+'</td><td>'+safe(seatCodes.join(" · ")||"Not seated")+'</td></tr>';
+      return '<tr><td><b>#'+safe(member.rez_id)+'</b></td><td>'+safe(guests.map(guest=>guest.guest_name).join(" / ")||member.display_name||"Guest name not available")+'</td><td>'+safe(seatCodes.join(" · ")||"Not seated")+'</td><td>'+groupComments(member.rez_id)+'</td></tr>';
     }).join("");
     return '<article class="groupsGlanceCard">'+
       '<div class="groupsGlanceHead"><div><div class="kicker">Named seating group</div><h3>'+safe(group.group_name||"Unnamed group")+'</h3>'+(group.notes?'<p>'+safe(group.notes)+'</p>':"")+'</div><button type="button" data-open-group="'+safe(members[0]?.rez_id||"")+'">Open on map</button></div>'+
       '<div class="groupsGlanceStats"><span><b>'+members.length+'</b> reservations</span><span><b>'+people.length+'</b> guests</span><span class="'+(unseated?'warn':'ok')+'"><b>'+unseated+'</b> unseated</span></div>'+
-      '<div class="groupsGlanceScroll"><table><thead><tr><th>Rez #</th><th>Guests</th><th>Seats</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      '<div class="groupsGlanceScroll"><table><thead><tr><th>Rez #</th><th>Guests</th><th>Seats</th><th>Comments</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
     '</article>';
   }
   function showGroups(){
@@ -4010,7 +4029,7 @@ setInterval(() => {
     .groupsGlanceModal{position:fixed;inset:0;z-index:11000;display:grid;place-items:center;padding:18px;background:rgba(18,35,67,.52)}
     .groupsGlanceBox{width:min(1080px,100%);max-height:calc(100vh - 36px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.28);padding:20px}
     .groupsGlanceBox header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;border-bottom:1px solid var(--line);padding-bottom:14px}.groupsGlanceBox h2{margin:2px 0 0;color:var(--navy);font-size:23px}.groupsGlanceBox header p{margin:7px 0 0;max-width:700px;color:var(--muted);font-size:12px;line-height:1.45}.groupsGlanceClose{border:0;background:transparent;color:var(--navy);font-size:30px;line-height:1;padding:0 3px}
-    .groupsGlanceList{display:grid;gap:12px;margin-top:14px}.groupsGlanceCard{border:1px solid var(--line);border-left:5px solid var(--linked);border-radius:10px;padding:13px}.groupsGlanceHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.groupsGlanceHead h3{margin:2px 0 0;color:var(--navy);font-size:17px}.groupsGlanceHead p{margin:5px 0 0;color:var(--muted);font-size:11px;line-height:1.4}.groupsGlanceHead button{flex:none;border:1px solid #cbb4e5;background:#f8f3ff;color:#49226f;border-radius:7px;padding:7px 9px;font-size:10px;font-weight:800}.groupsGlanceStats{display:flex;flex-wrap:wrap;gap:7px;margin:11px 0}.groupsGlanceStats span{border-radius:999px;background:#f4f6f9;color:var(--navy);padding:4px 8px;font-size:10px}.groupsGlanceStats span.warn{background:#fff0d9;color:#895600}.groupsGlanceStats span.ok{background:#e8f6ee;color:#17653d}.groupsGlanceScroll{overflow:auto}.groupsGlanceScroll table{width:100%;border-collapse:collapse;min-width:610px;font-size:11px}.groupsGlanceScroll th,.groupsGlanceScroll td{border-top:1px solid var(--line);padding:7px;text-align:left;vertical-align:top}.groupsGlanceScroll th{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.04em}.groupsGlanceEmpty{padding:18px;color:var(--muted);font-size:12px;border:1px dashed var(--line);border-radius:8px}
+    .groupsGlanceList{display:grid;gap:12px;margin-top:14px}.groupsGlanceCard{border:1px solid var(--line);border-left:5px solid var(--linked);border-radius:10px;padding:13px}.groupsGlanceHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.groupsGlanceHead h3{margin:2px 0 0;color:var(--navy);font-size:17px}.groupsGlanceHead p{margin:5px 0 0;color:var(--muted);font-size:11px;line-height:1.4}.groupsGlanceHead button{flex:none;border:1px solid #cbb4e5;background:#f8f3ff;color:#49226f;border-radius:7px;padding:7px 9px;font-size:10px;font-weight:800}.groupsGlanceStats{display:flex;flex-wrap:wrap;gap:7px;margin:11px 0}.groupsGlanceStats span{border-radius:999px;background:#f4f6f9;color:var(--navy);padding:4px 8px;font-size:10px}.groupsGlanceStats span.warn{background:#fff0d9;color:#895600}.groupsGlanceStats span.ok{background:#e8f6ee;color:#17653d}.groupsGlanceScroll{overflow:auto}.groupsGlanceScroll table{width:100%;border-collapse:collapse;min-width:860px;font-size:11px}.groupsGlanceScroll th,.groupsGlanceScroll td{border-top:1px solid var(--line);padding:7px;text-align:left;vertical-align:top}.groupsGlanceScroll th{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.04em}.groupsGlanceScroll td:last-child{min-width:260px}.groupsGlanceComment{margin:0 0 6px;line-height:1.4}.groupsGlanceComment:last-child{margin-bottom:0}.groupsGlanceComment b{display:block;color:var(--navy);font-size:9px;letter-spacing:.04em}.groupsGlanceNoComment{color:var(--muted);font-size:10px}.groupsGlanceEmpty{padding:18px;color:var(--muted);font-size:12px;border:1px dashed var(--line);border-radius:8px}
     @media(max-width:650px){.groupsGlanceModal{padding:8px}.groupsGlanceBox{padding:14px}.groupsGlanceHead{display:block}.groupsGlanceHead button{margin-top:10px}}
   `;
   document.head.appendChild(style);
