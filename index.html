@@ -457,8 +457,8 @@ button[disabled]{opacity:.58;cursor:not-allowed}
         </div>
       </section>
 
-      <aside class="upcomingPanel" aria-label="Upcoming reservations">
-        <div class="tabs"><div class="tab active">Upcoming Next</div><div class="tab" id="resultCount">0 shown</div></div>
+      <aside class="upcomingPanel" aria-label="Reservations to seat next">
+        <div class="tabs"><div class="tab active">Seat Next</div><div class="tab" id="resultCount">0 shown</div></div>
         <div id="rezlist"></div>
       </aside>
     </div>
@@ -1224,14 +1224,17 @@ function renderReservationList() {
   const selectedLinked = new Set(selectedRez ? linkedRezIds(selectedRez) : []);
 
   const rows = reservations.filter(r => {
-    if (!query) return true;
+    // The front-page rail is the seating order: only reservations with at
+    // least one guest still open, oldest reservation numbers first. Search
+    // remains broader so staff can always find an already-seated guest.
+    if (!query) return rezSeats(r.rez_id).length < rezGuests(r.rez_id).length;
     const names = rezGuests(r.rez_id).map(g => g.guest_name).join(" ");
     const comments = [r.reservation_comments, r.guest_comments].filter(Boolean).join(" ");
     const searchable = [r.rez_id, names, comments].join(" ").toLowerCase();
     return searchable.includes(query);
-  });
+  }).sort((a,b) => String(a.rez_id).localeCompare(String(b.rez_id), undefined, {numeric:true, sensitivity:"base"}));
 
-  $("resultCount").textContent = Math.min(rows.length, 5) + " of " + rows.length + " shown";
+  $("resultCount").textContent = Math.min(rows.length, 5) + " of " + rows.length + (query ? " shown" : " unseated");
   const box = $("rezlist");
   box.innerHTML = "";
 
@@ -3959,7 +3962,7 @@ setInterval(() => {
   function openGroup(rezId){
     selectedRez=String(rezId);
     selectedGuest=guestsFor(selectedRez)[0]?.id || null;
-    document.getElementById("groupsAtGlanceModal")?.remove();
+    closeGroupsPage();
     renderAll();
     document.getElementById("workspace")?.scrollIntoView({behavior:"smooth",block:"start"});
     setStatus("Opened group on the seating map. Red seats are this reservation; purple seats are its linked group.","ok");
@@ -3998,7 +4001,7 @@ setInterval(() => {
     '</article>';
   }
   function showGroups(){
-    document.getElementById("groupsAtGlanceModal")?.remove();
+    document.getElementById("groupsAtGlancePage")?.remove();
     const named=(groups || []).map(group=>({group,roster:groupRoster(group)}))
       .filter(({roster})=>roster)
       .sort((a,b)=>{
@@ -4009,28 +4012,31 @@ setInterval(() => {
         const rezOrder=a.roster.firstRezId.localeCompare(b.roster.firstRezId,undefined,{numeric:true});
         return rezOrder || String(a.group.group_name||"").localeCompare(String(b.group.group_name||""));
       });
-    const modal=document.createElement("div");
-    modal.id="groupsAtGlanceModal";
-    modal.className="groupsGlanceModal";
+    const page=document.createElement("section");
+    page.id="groupsAtGlancePage";
+    page.className="groupsGlancePage";
     const cards=named.map(({group,roster})=>groupCard(group,roster));
     const body=cards.length ? cards.join("") : '<div class="groupsGlanceEmpty">No active named groups have been linked yet.</div>';
-    modal.innerHTML='<section class="groupsGlanceBox" role="dialog" aria-modal="true" aria-labelledby="groupsGlanceTitle"><header><div><div class="kicker">Seating check</div><h2 id="groupsGlanceTitle">Groups at a Glance</h2><p>Every named group, its guests, and their current seats. “Open on map” shows the group together with linked seats in purple.</p></div><button class="groupsGlanceClose" type="button" aria-label="Close groups list">×</button></header><div class="groupsGlanceList">'+body+'</div></section>';
-    document.body.appendChild(modal);
-    modal.querySelector(".groupsGlanceClose").onclick=()=>modal.remove();
-    modal.addEventListener("click",event=>{
-      if(event.target===modal) modal.remove();
+    page.innerHTML='<header class="groupsGlancePageHead"><div><div class="kicker">Seating workspace</div><h2 id="groupsGlanceTitle">Groups at a Glance</h2><p>Every named group, its guests, current seats, and 2026 / 2025 comments. Open a group to seat it on the map.</p></div><button class="groupsGlanceBack" type="button">← Back to Seating Manager</button></header><div class="groupsGlanceList">'+body+'</div>';
+    document.querySelector("#app .app")?.appendChild(page);
+    document.body.classList.add("groupsGlancePageOpen");
+    page.querySelector(".groupsGlanceBack").onclick=closeGroupsPage;
+    page.addEventListener("click",event=>{
       const button=event.target.closest("[data-open-group]");
       if(button?.dataset.openGroup) openGroup(button.dataset.openGroup);
     });
+    window.scrollTo({top:0,behavior:"smooth"});
+  }
+  function closeGroupsPage(){
+    document.getElementById("groupsAtGlancePage")?.remove();
+    document.body.classList.remove("groupsGlancePageOpen");
+    window.scrollTo({top:0,behavior:"smooth"});
   }
   const style=document.createElement("style");
   style.textContent=`
     .actions>#groupsAtGlance{order:21;border-color:#7c4db4;background:#f8f3ff;color:#49226f}
-    .groupsGlanceModal{position:fixed;inset:0;z-index:11000;display:grid;place-items:center;padding:18px;background:rgba(18,35,67,.52)}
-    .groupsGlanceBox{width:min(1080px,100%);max-height:calc(100vh - 36px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.28);padding:20px}
-    .groupsGlanceBox header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;border-bottom:1px solid var(--line);padding-bottom:14px}.groupsGlanceBox h2{margin:2px 0 0;color:var(--navy);font-size:23px}.groupsGlanceBox header p{margin:7px 0 0;max-width:700px;color:var(--muted);font-size:12px;line-height:1.45}.groupsGlanceClose{border:0;background:transparent;color:var(--navy);font-size:30px;line-height:1;padding:0 3px}
-    .groupsGlanceList{display:grid;gap:12px;margin-top:14px}.groupsGlanceCard{border:1px solid var(--line);border-left:5px solid var(--linked);border-radius:10px;padding:13px}.groupsGlanceHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.groupsGlanceHead h3{margin:2px 0 0;color:var(--navy);font-size:17px}.groupsGlanceHead p{margin:5px 0 0;color:var(--muted);font-size:11px;line-height:1.4}.groupsGlanceHead button{flex:none;border:1px solid #cbb4e5;background:#f8f3ff;color:#49226f;border-radius:7px;padding:7px 9px;font-size:10px;font-weight:800}.groupsGlanceStats{display:flex;flex-wrap:wrap;gap:7px;margin:11px 0}.groupsGlanceStats span{border-radius:999px;background:#f4f6f9;color:var(--navy);padding:4px 8px;font-size:10px}.groupsGlanceStats span.warn{background:#fff0d9;color:#895600}.groupsGlanceStats span.ok{background:#e8f6ee;color:#17653d}.groupsGlanceScroll{overflow:auto}.groupsGlanceScroll table{width:100%;border-collapse:collapse;min-width:860px;font-size:11px}.groupsGlanceScroll th,.groupsGlanceScroll td{border-top:1px solid var(--line);padding:7px;text-align:left;vertical-align:top}.groupsGlanceScroll th{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.04em}.groupsGlanceScroll td:last-child{min-width:260px}.groupsGlanceComment{margin:0 0 6px;line-height:1.4}.groupsGlanceComment:last-child{margin-bottom:0}.groupsGlanceComment b{display:block;color:var(--navy);font-size:9px;letter-spacing:.04em}.groupsGlanceNoComment{color:var(--muted);font-size:10px}.groupsGlanceEmpty{padding:18px;color:var(--muted);font-size:12px;border:1px dashed var(--line);border-radius:8px}
-    @media(max-width:650px){.groupsGlanceModal{padding:8px}.groupsGlanceBox{padding:14px}.groupsGlanceHead{display:block}.groupsGlanceHead button{margin-top:10px}}
+    .groupsGlancePageOpen #app .app>:not(#groupsAtGlancePage){display:none!important}.groupsGlancePage{max-width:1500px;margin:0 auto;padding:8px 0 36px}.groupsGlancePageHead{display:flex;align-items:flex-start;justify-content:space-between;gap:22px;background:#fff;border-bottom:1px solid var(--line);padding:14px 0 18px}.groupsGlancePageHead h2{margin:3px 0 0;color:var(--navy);font-size:32px}.groupsGlancePageHead p{margin:8px 0 0;max-width:900px;color:var(--muted);font-size:16px;line-height:1.45}.groupsGlanceBack{flex:none;border:1px solid #cbb4e5;background:#f8f3ff;color:#49226f;border-radius:8px;padding:10px 13px;font-size:13px;font-weight:800}.groupsGlanceList{display:grid;gap:16px;margin-top:18px}.groupsGlanceCard{border:1px solid var(--line);border-left:6px solid var(--linked);border-radius:11px;padding:18px;background:#fff}.groupsGlanceHead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.groupsGlanceHead h3{margin:3px 0 0;color:var(--navy);font-size:23px}.groupsGlanceHead p{margin:7px 0 0;color:var(--muted);font-size:14px;line-height:1.45}.groupsGlanceHead button{flex:none;border:1px solid #cbb4e5;background:#f8f3ff;color:#49226f;border-radius:8px;padding:9px 12px;font-size:12px;font-weight:800}.groupsGlanceStats{display:flex;flex-wrap:wrap;gap:9px;margin:15px 0}.groupsGlanceStats span{border-radius:999px;background:#f4f6f9;color:var(--navy);padding:6px 10px;font-size:13px}.groupsGlanceStats span.warn{background:#fff0d9;color:#895600}.groupsGlanceStats span.ok{background:#e8f6ee;color:#17653d}.groupsGlanceScroll{overflow:auto}.groupsGlanceScroll table{width:100%;border-collapse:collapse;min-width:1120px;font-size:14px}.groupsGlanceScroll th,.groupsGlanceScroll td{border-top:1px solid var(--line);padding:11px 10px;text-align:left;vertical-align:top;line-height:1.4}.groupsGlanceScroll th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}.groupsGlanceScroll td:first-child{width:150px}.groupsGlanceScroll td:nth-child(2){width:31%}.groupsGlanceScroll td:nth-child(3){width:150px}.groupsGlanceScroll td:last-child{min-width:360px}.groupsGlanceComment{margin:0 0 9px;line-height:1.45}.groupsGlanceComment:last-child{margin-bottom:0}.groupsGlanceComment b{display:block;color:var(--navy);font-size:11px;letter-spacing:.04em;margin-bottom:2px}.groupsGlanceNoComment{color:var(--muted);font-size:13px}.groupsGlanceEmpty{padding:20px;color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:8px;background:#fff}
+    @media(max-width:700px){.groupsGlancePage{padding:0 0 24px}.groupsGlancePageHead{display:block}.groupsGlancePageHead h2{font-size:26px}.groupsGlancePageHead p{font-size:14px}.groupsGlanceBack{margin-top:12px}.groupsGlanceHead{display:block}.groupsGlanceHead button{margin-top:12px}}
   `;
   document.head.appendChild(style);
   groupButton();
