@@ -1769,10 +1769,19 @@ function importValue(source, names) {
   return "";
 }
 function canonicalGuestName(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[\s\u00A0]+/g, " ")
+    .trim();
 }
 function importGuestKey(rezId, guestName) {
   return String(rezId) + "\u0000" + canonicalGuestName(guestName).toLowerCase();
+}
+function looseImportGuestKey(rezId, guestName) {
+  return String(rezId) + "\u0000" + canonicalGuestName(guestName)
+    .toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
 // RezMagic exports vary slightly by report, but each uses one of these
@@ -2099,9 +2108,16 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
   const snapshot = importedSeatSnapshot(rows);
   const importedGuests = guests.filter(g => importedRezIds.has(String(g.rez_id)));
   const guestByKey = new Map(importedGuests.map(g => [importGuestKey(g.rez_id, g.guest_name), g]));
+  const guestsByLooseKey = new Map();
+  importedGuests.forEach(guest => {
+    const key=looseImportGuestKey(guest.rez_id, guest.guest_name);
+    if(!guestsByLooseKey.has(key)) guestsByLooseKey.set(key,[]);
+    guestsByLooseKey.get(key).push(guest);
+  });
   const desired = [];
   for (const [guestKey, row] of snapshot.byGuest) {
-    const guest = guestByKey.get(guestKey);
+    const looseMatches=guestsByLooseKey.get(looseImportGuestKey(row.rez_id,row.guest_name))||[];
+    const guest = guestByKey.get(guestKey) || (looseMatches.length===1 ? looseMatches[0] : null);
     if (!guest) throw new Error("RezMagic seat row could not be matched to a guest: " + row.guest_name + " on reservation #" + row.rez_id + ".");
     desired.push({guest, row});
   }
