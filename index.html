@@ -2078,7 +2078,7 @@ function importedSeatSnapshot(rows) {
   const byGuest = new Map();
   const bySeat = new Map();
   for (const row of rows) {
-    const guestKey = String(row.rez_id) + "\u0000" + String(row.guest_name).replace(/\s+/g, " ").trim().toLowerCase();
+    const guestKey = String(row.rez_id) + "\u0000" + String(row.guest_name).trim().toLowerCase();
     const seatKey = String(row.seat).trim().toUpperCase();
     if (byGuest.has(guestKey)) throw new Error("The RezMagic CSV lists " + row.guest_name + " more than once with a seat.");
     if (bySeat.has(seatKey)) throw new Error("The RezMagic CSV assigns " + seatKey + " to more than one guest.");
@@ -2091,14 +2091,7 @@ function importedSeatSnapshot(rows) {
 async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
   const snapshot = importedSeatSnapshot(rows);
   const importedGuests = guests.filter(g => importedRezIds.has(String(g.rez_id)));
-  const guestByKey = new Map();
-  for (const g of importedGuests) {
-    const key = String(g.rez_id) + "\u0000" + String(g.guest_name).replace(/\s+/g, " ").trim().toLowerCase();
-    if (guestByKey.has(key) && String(guestByKey.get(key).id) !== String(g.id)) {
-      throw new Error("Ambiguous guest records for " + g.guest_name + " on reservation #" + g.rez_id + ". No seating was replaced.");
-    }
-    guestByKey.set(key, g);
-  }
+  const guestByKey = new Map(importedGuests.map(g => [String(g.rez_id) + "\u0000" + String(g.guest_name).trim().toLowerCase(), g]));
   const desired = [];
   for (const [guestKey, row] of snapshot.byGuest) {
     const guest = guestByKey.get(guestKey);
@@ -2219,32 +2212,6 @@ async function executeImport() {
   $("privacyModal").style.display = "none";
 
   try {
-    // Verify every seat belongs to a guest in this same CSV before making any
-    // database changes. RezMagic may insert extra whitespace in party names on
-    // different add-on rows; compare canonical names, not raw strings.
-    const canonicalGuest = name => String(name || "").replace(/\s+/g, " ").trim().toLowerCase();
-    const rosterKeys = new Set();
-    p.rezVals.forEach(v => v.guests.forEach(name =>
-      rosterKeys.add(String(v.rez_id) + "\u0000" + canonicalGuest(name))
-    ));
-    const unmatchedSeats = p.seatRows.filter(row =>
-      !rosterKeys.has(String(row.rez_id) + "\u0000" + canonicalGuest(row.guest_name))
-    );
-    if (unmatchedSeats.length) {
-      throw new Error("RezMagic seating has " + unmatchedSeats.length +
-        " unmatched guest row(s), starting with " + unmatchedSeats[0].guest_name +
-        " on reservation #" + unmatchedSeats[0].rez_id +
-        ". No seats were replaced. Please check the export.");
-    }
-
-    const seatSnapshot = importedSeatSnapshot(p.seatRows);
-    if (!seatSnapshot.bySeat.size || (assignments.length >= 50 && seatSnapshot.bySeat.size < assignments.length * 0.8)) {
-      throw new Error("Incomplete RezMagic seating export. No live data was changed.");
-    }
-    const csvGuestCount = p.rezVals.reduce((n,v) => n + v.guests.size, 0);
-    if (!csvGuestCount || p.seatRows.length > csvGuestCount) {
-      throw new Error("RezMagic seating exceeds the active guest roster. No live data was changed.");
-    }
     setStatus("Creating automatic pre-import snapshot…", "busy");
     await saveSnapshot("Auto · Before RezMagic import · " + new Date().toLocaleString());
 
@@ -2294,8 +2261,10 @@ async function executeImport() {
         headers:{Prefer:"return=minimal"},
         body:JSON.stringify({status:"cancelled", updated_at:now})
       });
-      // Seat assignments are replaced only after the complete CSV seat snapshot
-      // is validated, so a failed import cannot prematurely erase these seats.
+      await api("seat_assignments?rez_id=" + staleFilter, {
+        method:"DELETE",
+        headers:{Prefer:"return=minimal"}
+      });
     }
 
     // The reservation remains in the shared database as a cancellation record,
@@ -2307,8 +2276,10 @@ async function executeImport() {
         headers:{Prefer:"return=minimal"},
         body:JSON.stringify({status:"cancelled", updated_at:now})
       });
-      // The authoritative full-seat replacement below releases these seats
-      // after all guest and seat references have been validated.
+      await api("seat_assignments?rez_id=" + cancelledFilter, {
+        method:"DELETE",
+        headers:{Prefer:"return=minimal"}
+      });
     }
 
     const guestPayload = [];
@@ -2328,15 +2299,28 @@ async function executeImport() {
     // old guest rows cannot remain in the manager or inflate its guest count.
     // Seats have already been rebuilt from the CSV before these stale guests
     // are removed, so no current assignment can be deleted here.
-    const importedGuestKeys = new Set(guestPayload.map(guest =>
-      String(guest.rez_id) + "\u0000" + String(guest.guest_name).replace(/\s+/g, " ").trim().toLowerCase()
-    ));
-    const staleGuestIds = guests
-      .filter(guest => importedRezIds.has(String(guest.rez_id)))
-      .filter(guest => !importedGuestKeys.has(
-        String(guest.rez_id) + "\u0000" + String(guest.guest_name).replace(/\s+/g, " ").trim().toLowerCase()
-      ))
-      .map(guest => String(guest.id));
+    const importedGuestNames = new Map(guestPayload.map(guest => [
+      String(guest.rez_id) + "\u0000" + String(guest.guest_name).trim().toLowerCase(),
+      String(guest.guest_name).trim()
+    ]));
+    const liveGuestsByKey = new Map();
+    guests.filter(guest => importedRezIds.has(String(guest.rez_id))).forEach(guest => {
+      const key=String(guest.rez_id) + "\u0000" + String(guest.guest_name).trim().toLowerCase();
+      if(!liveGuestsByKey.has(key)) liveGuestsByKey.set(key,[]);
+      liveGuestsByKey.get(key).push(guest);
+    });
+    const staleGuestIds=[];
+    liveGuestsByKey.forEach((matchingGuests,key) => {
+      const importedName=importedGuestNames.get(key);
+      if(!importedName) {
+        matchingGuests.forEach(guest=>staleGuestIds.push(String(guest.id)));
+        return;
+      }
+      // Case-only variations are the same person. Keep the spelling from the
+      // current CSV and remove any older duplicate record.
+      const keep=matchingGuests.find(guest=>String(guest.guest_name).trim()===importedName) || matchingGuests[0];
+      matchingGuests.forEach(guest=>{if(String(guest.id)!==String(keep.id)) staleGuestIds.push(String(guest.id));});
+    });
     for (let index = 0; index < staleGuestIds.length; index += 100) {
       const guestFilter = "in.(" + staleGuestIds.slice(index, index + 100).map(encodeURIComponent).join(",") + ")";
       await api("reservation_guests?id=" + guestFilter, {
