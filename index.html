@@ -1768,6 +1768,12 @@ function importValue(source, names) {
   }
   return "";
 }
+function canonicalGuestName(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+function importGuestKey(rezId, guestName) {
+  return String(rezId) + "\u0000" + canonicalGuestName(guestName).toLowerCase();
+}
 
 // RezMagic exports vary slightly by report, but each uses one of these
 // reservation-status headers. Keep cancelled reservations in the database for
@@ -1866,10 +1872,11 @@ async function preflightCSV(file) {
       // RezMagic can repeat the same party name on separate add-on rows with
       // different internal spacing. Count a person once per reservation while
       // retaining the first readable spelling for the seating manager.
-      const guestKey = guestName.replace(/\s+/g, " ").trim().toLowerCase();
+      const guestDisplayName = canonicalGuestName(guestName);
+      const guestKey = guestDisplayName.toLowerCase();
       if (guestName && !target.guestKeys.has(guestKey)) {
         target.guestKeys.add(guestKey);
-        target.guests.add(guestName.replace(/\s+/g, " ").trim());
+        target.guests.add(guestDisplayName);
       }
 
       for (const [sourceField, targetField] of [
@@ -1927,7 +1934,7 @@ async function preflightCSV(file) {
       }
 
       if (normalizedSeat && guestName) {
-        seatRows.push({rez_id:rezId, guest_name:guestName, seat:normalizedSeat});
+        seatRows.push({rez_id:rezId, guest_name:guestDisplayName, seat:normalizedSeat});
       }
     }
 
@@ -2078,7 +2085,7 @@ function importedSeatSnapshot(rows) {
   const byGuest = new Map();
   const bySeat = new Map();
   for (const row of rows) {
-    const guestKey = String(row.rez_id) + "\u0000" + String(row.guest_name).trim().toLowerCase();
+    const guestKey = importGuestKey(row.rez_id, row.guest_name);
     const seatKey = String(row.seat).trim().toUpperCase();
     if (byGuest.has(guestKey)) throw new Error("The RezMagic CSV lists " + row.guest_name + " more than once with a seat.");
     if (bySeat.has(seatKey)) throw new Error("The RezMagic CSV assigns " + seatKey + " to more than one guest.");
@@ -2091,7 +2098,7 @@ function importedSeatSnapshot(rows) {
 async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
   const snapshot = importedSeatSnapshot(rows);
   const importedGuests = guests.filter(g => importedRezIds.has(String(g.rez_id)));
-  const guestByKey = new Map(importedGuests.map(g => [String(g.rez_id) + "\u0000" + String(g.guest_name).trim().toLowerCase(), g]));
+  const guestByKey = new Map(importedGuests.map(g => [importGuestKey(g.rez_id, g.guest_name), g]));
   const desired = [];
   for (const [guestKey, row] of snapshot.byGuest) {
     const guest = guestByKey.get(guestKey);
@@ -2300,12 +2307,12 @@ async function executeImport() {
     // Seats have already been rebuilt from the CSV before these stale guests
     // are removed, so no current assignment can be deleted here.
     const importedGuestNames = new Map(guestPayload.map(guest => [
-      String(guest.rez_id) + "\u0000" + String(guest.guest_name).trim().toLowerCase(),
+      importGuestKey(guest.rez_id, guest.guest_name),
       String(guest.guest_name).trim()
     ]));
     const liveGuestsByKey = new Map();
     guests.filter(guest => importedRezIds.has(String(guest.rez_id))).forEach(guest => {
-      const key=String(guest.rez_id) + "\u0000" + String(guest.guest_name).trim().toLowerCase();
+      const key=importGuestKey(guest.rez_id, guest.guest_name);
       if(!liveGuestsByKey.has(key)) liveGuestsByKey.set(key,[]);
       liveGuestsByKey.get(key).push(guest);
     });
