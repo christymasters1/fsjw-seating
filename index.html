@@ -3942,7 +3942,9 @@ setInterval(() => {
   }
   function reservationDateFor(rezId){
     const reservation=reservationFor(rezId)||{};
-    const raw=reservation.reservation_date||reservation.date_reserved||reservation.reserved_at||reservation.rez_date||reservation.booking_date||reservation.created_at||"";
+    // `created_on` is the source CSV's Create Date field. Do not substitute
+    // booking, arrival, or any other reservation date in this groups view.
+    const raw=reservation.created_on||reservation.create_date||"";
     if(!raw)return "—";
     const date=new Date(raw);
     return Number.isNaN(date.getTime())?String(raw):date.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
