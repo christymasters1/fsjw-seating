@@ -350,6 +350,15 @@ button[disabled]{opacity:.58;cursor:not-allowed}
 .eventCard button.secondary{background:#fff;color:var(--navy);border:1px solid #cbd6ea}
 .eventSafety{margin-top:18px;border:1px solid #cddbef;border-radius:10px;background:#fff;padding:12px 14px;color:#43516a;font-size:13px;line-height:1.45}
 .eventSafety b{color:var(--navy)}
+.rbnyePreview{margin-top:18px;border:1px solid #d7dfec;border-radius:14px;background:#fff;overflow:hidden;box-shadow:0 9px 25px rgba(23,32,51,.05)}
+.rbnyePreviewHead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:18px 20px;border-bottom:1px solid #e1e7f0}
+.rbnyePreviewHead h2{margin:4px 0 0;color:var(--navy);font-size:23px}.rbnyePreviewHead p{margin:7px 0 0;color:var(--muted);font-size:13px;line-height:1.45}
+.rbnyeMapScroll{overflow:auto;padding:18px;background:#f8fafc}.rbnyeMap{min-width:860px;padding:12px;background:#fff;border:1px solid #e0e6ee;border-radius:10px}
+.rbnyeRoomFront{display:grid;grid-template-columns:1fr 1.15fr 1fr;align-items:stretch;gap:24px;margin:0 auto 20px;max-width:790px}
+.rbnyeDanceFloor{min-height:118px;border:2px solid #4f5966;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#111;text-align:center;font-weight:900;font-size:19px;letter-spacing:.02em}.rbnyeDanceFloor small{display:block;margin-bottom:24px;font-size:10px;letter-spacing:.04em}.rbnyeStage{display:flex;align-items:center;justify-content:center;color:#111;font-size:28px;font-weight:900;letter-spacing:.03em}
+.rbnyeRows{display:flex;flex-direction:column;gap:14px}.rbnyeRow{display:grid;grid-template-columns:4fr 6fr 4fr;align-items:center;gap:28px;min-height:55px}.rbnyeBank{display:flex;align-items:center;justify-content:center;gap:8px;min-width:0}.rbnyeTable{display:flex;align-items:center;justify-content:center;flex:0 0 46px;width:46px;height:46px;border-radius:50%;background:#f5dc4f;border:1px solid #d9bd22;color:#fff;font-size:16px;font-weight:900;line-height:1;box-shadow:0 1px 1px rgba(58,47,0,.12)}.rbnyeTable.blue{background:#2b4692;border-color:#1f3571}.rbnyeTable:hover{filter:brightness(.94)}
+.rbnyeKey{align-self:stretch;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px dashed #b6c2d6;border-radius:10px;color:var(--navy);font-size:11px;font-weight:800;text-align:center;line-height:1.35;padding:6px}.rbnyeKey b{font-size:17px}.rbnyeLegend{display:flex;flex-wrap:wrap;gap:12px;padding:0 20px 18px;color:#4f5863;font-size:12px}.rbnyeLegend span{display:flex;align-items:center;gap:6px}.rbnyeLegend i{display:inline-block;width:13px;height:13px;border-radius:50%;background:#f5dc4f;border:1px solid #d9bd22}.rbnyeLegend i.blue{background:#2b4692;border-color:#1f3571}
+@media(max-width:850px){.rbnyePreviewHead{display:block}.rbnyePreviewHead p{margin-bottom:8px}}
 @media(max-width:850px){.eventLandingHead{display:block}.eventGrid{grid-template-columns:1fr}.eventLandingHead h1{font-size:27px}}
 
 </style>
@@ -395,9 +404,9 @@ button[disabled]{opacity:.58;cursor:not-allowed}
         <div class="eventCode">RBNYE 26</div>
         <h2>Rick Braun's New Year's Eve 2026</h2>
         <p>Uses the same renewal, CSV, seating, and update rules—with a dedicated table-based seating chart.</p>
-        <div class="eventMeta">The table chart and event-isolated data store are the next setup items.</div>
-        <span class="eventPill setup">Table chart setup</span>
-        <button type="button" class="secondary" data-event-select="rbnye26">View RBNYE 26 setup</button>
+        <div class="eventMeta">The approved 102-table chart is ready; event-isolated shared data is next.</div>
+        <span class="eventPill setup">Chart ready · data setup next</span>
+        <button type="button" class="secondary" data-event-select="rbnye26">View RBNYE 26 chart</button>
       </article>
       <article class="eventCard setup">
         <div class="eventCode">DJW 27</div>
@@ -586,6 +595,51 @@ const EVENTS = Object.freeze({
   djw27:{id:"djw27",code:"DJW 27",name:"Daytona Jazz Weekend 2027",chartType:"pending",ready:false}
 });
 
+// Source: approved RBNYE 26 seating chart. Each numbered circle is one
+// ten-person table; blue is the chart's blue-table section.
+const RBNYE_TABLE_ROWS = Object.freeze([
+  [[89,1,2,3],[4,5,6,7,8,9],[10,11,12,90]],
+  [[13,14,15,16],[17,18,19,20,21,22],[23,24,25,26]],
+  [[27,28,29,30],[31,32,33,34,35,36],[37,38,39,40]],
+  [[41,42,43,44],[45,46,47,48,49],[50,51,52,53]],
+  [[54,55,56,57],[58,59,60,61,62],[63,64,65,66]],
+  [[67,68,69,70],[71,72,73,74,75],[76,77,78,79]],
+  [[80,81,82,83],[91,92,93,94],[84,85,86,87,88]],
+  [[95,96,97,98],[],[99,100,101,102]]
+]);
+const RBNYE_BLUE_TABLES = new Set([
+  4,5,6,7,8,9,
+  17,18,19,20,21,22,
+  31,32,33,34,35,36,
+  45,46,47,48,49
+]);
+
+function rbnyeTableMarkup(tableNumber) {
+  const tone = RBNYE_BLUE_TABLES.has(tableNumber) ? " blue" : "";
+  return '<div class="rbnyeTable' + tone + '" data-table-id="' + tableNumber + '" title="Table ' + tableNumber + ' · 10 seats">' + tableNumber + '</div>';
+}
+
+function rbnyeRowMarkup(row, isLastRow) {
+  const banks = row.map((bank, index) => {
+    if (isLastRow && index === 1) {
+      return '<div class="rbnyeKey"><b>10 seats</b><span>at every table</span></div>';
+    }
+    return '<div class="rbnyeBank">' + bank.map(rbnyeTableMarkup).join("") + '</div>';
+  });
+  return '<div class="rbnyeRow">' + banks.join("") + '</div>';
+}
+
+function rbnyePreviewMarkup() {
+  return '<section class="rbnyePreview" aria-label="Rick Braun New Year’s Eve table chart">' +
+    '<header class="rbnyePreviewHead"><div><div class="eventCode">RBNYE 26 · Seating chart</div><h2>Rick Braun’s New Year’s Eve table layout</h2><p>102 numbered tables · 10 seats per table · 1,020-seat table capacity.</p></div></header>' +
+    '<div class="rbnyeMapScroll"><div class="rbnyeMap">' +
+      '<div class="rbnyeRoomFront"><div class="rbnyeDanceFloor"><small>VIDEO SCREEN</small>DANCE FLOOR</div><div class="rbnyeStage">STAGE</div><div class="rbnyeDanceFloor"><small>VIDEO SCREEN</small>DANCE FLOOR</div></div>' +
+      '<div class="rbnyeRows">' + RBNYE_TABLE_ROWS.map((row, index) => rbnyeRowMarkup(row, index === RBNYE_TABLE_ROWS.length - 1)).join("") + '</div>' +
+    '</div></div>' +
+    '<div class="rbnyeLegend"><span><i class="blue"></i>Blue tables: 4–9, 17–22, 31–36, 45–49</span><span><i></i>Gold tables: all remaining numbered tables</span></div>' +
+  '</section>';
+}
+
 function storedEventId() {
   try {
     const id = localStorage.getItem(ACTIVE_EVENT_KEY);
@@ -624,6 +678,13 @@ function renderEventSetupMessage() {
     if (target) target.hidden = true;
     return;
   }
+  if (event.id === "rbnye26") {
+    target.className = "";
+    target.hidden = false;
+    target.innerHTML = '<div class="eventSafety"><b>RBNYE 26 table chart is ready.</b> The next source-code step is the event-scoped database migration. Until that is verified against the live schema, RezMagic import remains deliberately unavailable here—protecting FSJW from cross-event changes.</div>' + rbnyePreviewMarkup();
+    return;
+  }
+  target.className = "eventSafety";
   const chartText = event.chartType === "tables"
     ? "a numbered table layout (table numbers, seat counts, and placement)"
     : "its room layout and seating chart";
