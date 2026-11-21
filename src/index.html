@@ -537,8 +537,23 @@ button[disabled]{opacity:.58;cursor:not-allowed}
       </section>
 
       <aside class="upcomingPanel" aria-label="Reservations to seat next">
-        <div class="tabs"><div class="tab active">Seat Next</div><div class="tab" id="resultCount">0 shown</div></div>
-        <div id="rezlist"></div>
+        <div id="seatNextPanel">
+          <div class="tabs"><div class="tab active">Seat Next</div><div class="tab" id="resultCount">0 shown</div></div>
+          <div id="rezlist"></div>
+        </div>
+        <section id="workQueueMode" aria-live="polite">
+          <div class="workQueueHead">
+            <div>
+              <div class="kicker">Work queue</div>
+              <h3 id="workQueueTitle">Priority requests</h3>
+            </div>
+            <button id="backToSeatNext" class="queueBack" type="button">Seat Next</button>
+          </div>
+          <div id="workMiniMetrics" class="workMiniMetrics"></div>
+          <div id="workQueueInfo" class="workQueueInfo"></div>
+          <div id="workCards" class="workCards"></div>
+          <div id="workQueueFooter" class="small" style="margin-top:8px"></div>
+        </section>
       </aside>
     </div>
 
@@ -750,7 +765,9 @@ let isImporting = false;
 let changeFilter = "open";
 let lastLoad = 0;
 let requestStatuses = [];
-let requestView = "suite";
+// The normal landing view is always Seat Next. A work queue opens only when
+// staff selects one of the dedicated buttons in the header.
+let requestView = "";
 let noteSaveInFlight = false;
 
 // Physical row order from the RezMagic seating chart.  Keep every displayed
@@ -3438,15 +3455,18 @@ setInterval(() => {
   window.renderRequestWorkbench=function(){
     const searchMode=document.getElementById("reservationSearchMode"),queueMode=document.getElementById("workQueueMode"),cardsHost=document.getElementById("workCards"),metricsHost=document.getElementById("workMiniMetrics"),infoHost=document.getElementById("workQueueInfo"),footerHost=document.getElementById("workQueueFooter");
     if(!queueMode||!cardsHost) return;
+    const seatNextPanel=document.getElementById("seatNextPanel");
+    const backToSeatNext=document.getElementById("backToSeatNext");
     const rightRail=document.getElementById("rightReservationRail");
     if(searchMode) searchMode.style.display="block";
     if(rightRail) rightRail.classList.remove("workQueueOpen");
     const suiteActive=activeWorkRows("suite"),adaActive=activeWorkRows("ada"),kingActive=activeWorkRows("king"),groupActive=activeWorkRows("group");
     const sb=document.getElementById("suiteWorkBadge"),ab=document.getElementById("adaWorkBadge"),kb=document.getElementById("kingWorkBadge"),gb=document.getElementById("groupWorkBadge");if(sb)sb.textContent=suiteActive.length;if(ab)ab.textContent=adaActive.length;if(kb)kb.textContent=kingActive.length;if(gb)gb.textContent=groupActive.length;
     document.querySelectorAll("[data-work-mode]").forEach(button=>{button.classList.toggle("active",button.dataset.workMode===requestView);button.onclick=()=>{requestView=button.dataset.workMode;localStorage.setItem("fsjw_work_mode",requestView);workSearch="";const rows=activeWorkRows(requestView);if(rows.length&&!new Set(rows.map(workRowRezId)).has(String(selectedRez))){selectedRez=String(workRowRezId(rows[0]));const gs=rezGuests(selectedRez);selectedGuest=gs[0]?.id||null;}renderAll();};});
-    if(!requestView){if(searchMode)searchMode.style.display="block";queueMode.style.display="none";if(rightRail)rightRail.classList.remove("workQueueOpen");return;}
-    if(searchMode)searchMode.style.display="block";queueMode.style.display="block";
-    const labels={genpop:"Gen Pop — Seating Still Open",suite:"Suite Upgrade Queue",room:"Room Upgrade Queue",group:"Group Seating Queue"};document.getElementById("workQueueTitle").textContent=labels[requestView];
+    if(backToSeatNext)backToSeatNext.onclick=()=>{requestView="";localStorage.removeItem("fsjw_work_mode");workSearch="";renderAll();};
+    if(!requestView){if(searchMode)searchMode.style.display="block";if(seatNextPanel)seatNextPanel.style.display="block";queueMode.style.display="none";if(rightRail)rightRail.classList.remove("workQueueOpen");return;}
+    if(searchMode)searchMode.style.display="block";if(seatNextPanel)seatNextPanel.style.display="none";queueMode.style.display="block";
+    const labels={genpop:"Gen Pop — Seating Still Open",suite:"Suite Upgrade Queue",ada:"ADA Upgrade Queue",king:"King Upgrade Queue",room:"Room Upgrade Queue",group:"Group Seating Queue"};document.getElementById("workQueueTitle").textContent=labels[requestView]||"Work Queue";
     const queueHead=document.querySelector("#workQueueMode .workQueueHead");
     let genPopButton=document.getElementById("genPopQueueBtn");
     if(requestView!=="genpop"){
