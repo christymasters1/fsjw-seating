@@ -23,9 +23,15 @@
   async function sha256(v){const raw=String(v||"").trim().toLowerCase();if(!raw||!crypto?.subtle)return null;const bytes=new TextEncoder().encode(raw);const hash=await crypto.subtle.digest("SHA-256",bytes);return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,"0")).join("");}
   function normalizePhone(v){return String(v||"").replace(/\D/g,"").slice(-10);}
   function normalizeEmail(v){return String(v||"").trim().toLowerCase();}
+  function historicalSeatId(value){
+    if(typeof normalizeSeatId==="function")return normalizeSeatId(value);
+    const raw=String(value||"").trim().toUpperCase();
+    return SEAT_CODE.test(raw)?raw:null;
+  }
 
   async function loadHistory(){
     if(historyLoading)return;
+    if(typeof activeEvent==="function"&&!activeEvent())return;
     historyLoading=true;
     try{
       historicalRecords=await apiAll("historical_guest_records?select=*&event_year=eq."+HISTORY_YEAR+"&order=guest_name.asc");
@@ -34,6 +40,12 @@
     }catch(e){console.error("Historical seating load failed",e);}
     finally{historyLoading=false;}
   }
+  window.reloadSeatingHistory=function(){
+    historicalRecords=[];
+    historicalLinks=[];
+    historyReady=false;
+    return loadHistory();
+  };
   function recordsForRez(rezId){return historicalRecords.filter(r=>String(r.matched_rez_id||"")===String(rezId||""));}
   function linkedRezIds(rezId){const id=String(rezId||""),out=[];historicalLinks.forEach(l=>{if(String(l.matched_rez_id)===id)out.push(String(l.linked_rez_id));if(String(l.linked_rez_id)===id)out.push(String(l.matched_rez_id));});return unique(out).filter(x=>x!==id);}
 
@@ -95,14 +107,14 @@
     const required=["RezId1","PartyName","AddOnProductName","AddOnCategoryName","RezComments","GuestComments"],missing=required.filter(h=>!(h in rows[0]));if(missing.length)throw new Error("Missing 2025 columns: "+missing.join(", "));
     const dates=rows.map(r=>String(r.AdjStartDate||"")).filter(Boolean).slice(0,50).join(" ");if(dates&&!dates.includes("2025"))throw new Error("This file does not appear to be the 2025 event export.");
     const byKey=new Map();
-    rows.forEach(source=>{const rez=String(source.RezId1||"").trim(),name=String(source.PartyName||"").trim(),n=norm(name);if(!rez||!name||!n)return;const key=rez+"|"+n;if(!byKey.has(key))byKey.set(key,{event_year:HISTORY_YEAR,historical_rez_id:rez,guest_name:name,normalized_guest_name:n,seat_id:null,reservation_comments:"",guest_comments:"",room_type:String(source.PrimaryCategoryCode||"").trim()||null,seat_upgrade_status:null,matched_rez_id:null,match_method:"unmatched",email:normalizeEmail(source.Email),phone:normalizePhone(source.ContactPhone),source_file:file.name});const item=byKey.get(key),product=String(source.AddOnProductName||"").trim(),addon=String(source.AddOnCategoryName||"").trim().toUpperCase();if(ASSIGNED_SEATING_PRODUCT.test(product)&&SEAT_CODE.test(addon))item.seat_id=addon;if(addon==="SUP")item.seat_upgrade_status="YES on reservation";item.reservation_comments=item.reservation_comments||cleanComment(source.RezComments);item.guest_comments=item.guest_comments||cleanComment(source.GuestComments);});
+    rows.forEach(source=>{const rez=String(source.RezId1||"").trim(),name=String(source.PartyName||"").trim(),n=norm(name);if(!rez||!name||!n)return;const key=rez+"|"+n;if(!byKey.has(key))byKey.set(key,{event_year:HISTORY_YEAR,historical_rez_id:rez,guest_name:name,normalized_guest_name:n,seat_id:null,reservation_comments:"",guest_comments:"",room_type:String(source.PrimaryCategoryCode||"").trim()||null,seat_upgrade_status:null,matched_rez_id:null,match_method:"unmatched",email:normalizeEmail(source.Email),phone:normalizePhone(source.ContactPhone),source_file:file.name});const item=byKey.get(key),product=String(source.AddOnProductName||"").trim(),addon=String(source.AddOnCategoryName||"").trim().toUpperCase(),seat=historicalSeatId(addon);if(ASSIGNED_SEATING_PRODUCT.test(product)&&seat)item.seat_id=seat;if(addon==="SUP")item.seat_upgrade_status="YES on reservation";item.reservation_comments=item.reservation_comments||cleanComment(source.RezComments);item.guest_comments=item.guest_comments||cleanComment(source.GuestComments);});
     const nameIndex=currentGuestIndex(),records=[];
     for(const item of byKey.values()){item.email_hash=await sha256(item.email);item.phone_hash=await sha256(item.phone);delete item.email;delete item.phone;const exact=nameIndex.get(item.normalized_guest_name)||[];if(exact.length===1){item.matched_rez_id=String(exact[0].rez_id);item.match_method="exact name";}records.push(item);}
     setStatus("Replacing 2025 historical seating…","busy");
     await api("historical_links?event_year=eq."+HISTORY_YEAR,{method:"DELETE",headers:{Prefer:"return=minimal"}});
     await api("historical_guest_records?event_year=eq."+HISTORY_YEAR,{method:"DELETE",headers:{Prefer:"return=minimal"}});
-    await chunkedUpsert("historical_guest_records",records,"event_year,historical_rez_id,normalized_guest_name",100);
-    const links=buildHistoricalLinks(records);if(links.length)await chunkedUpsert("historical_links",links,"event_year,matched_rez_id,linked_rez_id",100);
+    await chunkedUpsert("historical_guest_records",records,"event_id,event_year,historical_rez_id,normalized_guest_name",100);
+    const links=buildHistoricalLinks(records);if(links.length)await chunkedUpsert("historical_links",links,"event_id,event_year,matched_rez_id,linked_rez_id",100);
     historicalRecords=records;historicalLinks=links;historyReady=true;scheduleHistoryRender();
     return{records:records.length,matched:records.filter(r=>r.matched_rez_id).length,links:links.length};
   }
