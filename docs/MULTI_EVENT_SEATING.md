@@ -5,7 +5,7 @@ The seating manager now starts with an annual-event chooser. The current catalog
 | Code | Event | Chart | State |
 | --- | --- | --- | --- |
 | FSJW 26 | Florida Smooth Jazz Weekend 2026 | Existing theater chart | Live |
-| RBNYE 26 | Rick Braun's New Year's Eve 2026 | Table chart | Awaiting table layout + data scope |
+| RBNYE 26 | Rick Braun's New Year's Eve 2026 | 102-table chart | Chart captured; awaiting data scope |
 | DJW 27 | Daytona Jazz Weekend 2027 | To be defined | Provisioned |
 
 ## Data-safety rule
@@ -26,6 +26,13 @@ When the Supabase project is active, inspect the current primary keys, unique co
 6. Verify RLS permits authorized staff to use their events, while preventing cross-event access.
 7. Test an RBNYE import and seat replacement against a disposable copy before enabling it in the live manager.
 
-## RBNYE chart input needed
+## RBNYE chart source
 
-Provide the final room diagram or a list of every table number, its seat count, and its floor placement. The table map will use that exact source; it should not be guessed from the FSJW theater layout.
+The approved RBNYE 26 chart is encoded in `src/index.html`:
+
+- Tables 1–102, with 10 seats at every table (1,020 table seats total).
+- Blue tables: 4–9, 17–22, 31–36, and 45–49.
+- Gold tables: all other numbered tables.
+- Stage centered between the two dance floors; a video screen above each dance floor.
+
+The layout is a dedicated RBNYE source and is not inferred from the FSJW theater map.
