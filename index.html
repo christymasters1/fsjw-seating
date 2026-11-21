@@ -2307,9 +2307,14 @@ async function preflightCSV(file) {
       }
     }
 
-    // Reject incomplete exports before any live data is changed.
+    // FSJW's daily file is the complete seating source. RBNYE's daily
+    // roster/add-on export can carry guest and dinner data with no table/chair
+    // rows, so an unseated RBNYE file updates guests without touching the
+    // table assignments already managed here.
     const validatedSeats = importedSeatSnapshot(seatRows);
-    if (!validatedSeats.bySeat.size) {
+    const isTableEvent = activeEvent()?.chartType === "tables";
+    const seatImportMode = isTableEvent && !validatedSeats.bySeat.size ? "preserve" : "authoritative";
+    if (!validatedSeats.bySeat.size && seatImportMode === "authoritative") {
       const expectedSeatHelp = activeEvent()?.chartType === "tables"
         ? "RBNYE rows must identify both table and chair, for example T004-01 or Table 4 Seat 1."
         : "Check RezMagic export columns.";
@@ -2334,7 +2339,8 @@ async function preflightCSV(file) {
       cancelledRezIds:[...cancelledRezIds],
       held,
       removed,
-      discardedSensitiveHeaders
+      discardedSensitiveHeaders,
+      seatImportMode
     };
 
     showPrivacyPreflight();
@@ -2363,6 +2369,10 @@ function showPrivacyPreflight() {
     '<div class="privacy-stat"><b>' + p.discardedSensitiveHeaders.length + '</b><br>Sensitive columns discarded</div>' +
     '<div class="privacy-stat"><b>' + removedCount + '</b><br>Private items removed from free text</div>';
 
+  const seatingImportNote = p.seatImportMode === "preserve"
+    ? '<div class="privacy-ok" style="margin-top:9px"><b>Table seating preserved:</b> this RBNYE file has no table/chair assignments, so it will update the roster without changing any table seats already assigned in the manager.</div>'
+    : '';
+
   $("privacyHeld").innerHTML =
     (p.held.length
       ? '<div class="privacy-hold">' + p.held.length + ' higher-risk comment item(s) will NOT be uploaded raw.</div>' +
@@ -2372,6 +2382,7 @@ function showPrivacyPreflight() {
         ).join("<br>") +
         '</div>'
       : '<div class="privacy-ok">Privacy preflight passed.</div>') +
+    seatingImportNote +
     '<div class="small" style="margin-top:9px"><b>Upload whitelist:</b> Rez number, guest name, seat, sanitized comments/requests, category name, category code, occupancy number, reservation date, check-in, check-out, length of stay, and seat-upgrade presence. Raw CSV, email, phone, address, balance/payment, and unrelated RezMagic fields are not stored.</div>';
 
   $("privacyModal").style.display = "flex";
@@ -2678,7 +2689,9 @@ async function executeImport() {
 
     const importedRezIds = new Set(p.rezVals.map(v => String(v.rez_id)));
     const removedUpgradeRequests = await reconcileRemovedUpgradeRequests(importedRezIds, now);
-    const reconciliation = await applyAuthoritativeRezMagicSeats(p.seatRows, importedRezIds, now);
+    const reconciliation = p.seatImportMode === "preserve"
+      ? {assigned:assignments.length, cleared:0, released:0, preserved:assignments.length}
+      : await applyAuthoritativeRezMagicSeats(p.seatRows, importedRezIds, now);
 
     // Reconcile people within an otherwise active reservation too.  A CSV may
     // remove or rename a guest while retaining the reservation number; those
@@ -2728,7 +2741,7 @@ async function executeImport() {
         source_of_truth:"RezMagic CSV",
         assigned_seats:reconciliation.assigned,
         released_assignments:reconciliation.released,
-        preserved_assignments:0,
+        preserved_assignments:reconciliation.preserved || 0,
         cleared_queue_items:reconciliation.cleared,
         removed_upgrade_requests:removedUpgradeRequests.length,
         cancelled_reservations:p.cancelledRezIds.length,
@@ -2740,13 +2753,14 @@ async function executeImport() {
     await loadAll({quiet:true});
     await saveSnapshot("Auto · After RezMagic import · " + new Date().toLocaleString());
 
-    setStatus(
-      "RezMagic import complete. RezMagic is now the complete seating source: " +
-      reconciliation.assigned + " assigned · " +
-      reconciliation.released + " prior seat record(s) replaced · " +
-      reconciliation.cleared + " queue item(s) cleared. Raw CSV was not stored.",
-      "ok"
-    );
+    const importMessage = p.seatImportMode === "preserve"
+      ? "RBNYE roster import complete. No table/chair assignments were included, so " +
+        reconciliation.preserved + " existing table seat record(s) were preserved. Raw CSV was not stored."
+      : "RezMagic import complete. RezMagic is now the complete seating source: " +
+        reconciliation.assigned + " assigned · " +
+        reconciliation.released + " prior seat record(s) replaced · " +
+        reconciliation.cleared + " queue item(s) cleared. Raw CSV was not stored.";
+    setStatus(importMessage, "ok");
   } catch (error) {
     setStatus("Import stopped: " + error.message + ". The map was reloaded from the shared database; do not treat it as current until the import reports complete.", "warn");
     await loadAll({quiet:true});
