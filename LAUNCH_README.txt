@@ -1,5 +1,11 @@
 FSJW26 SHARED SEATING MANAGER — LAUNCH BUILD
 
+SOURCE OF TRUTH
+- Edit src/index.html. It is the complete, maintained application source.
+- index.html is the deployable copy synchronized from src/index.html by GitHub Actions.
+- The historical payload and patch folders remain only as archived build history; do not add new runtime patches.
+- Multi-event architecture and the RBNYE/DJW setup requirements are in docs/MULTI_EVENT_SEATING.md.
+
 SECURITY
 - No raw RezMagic CSV is embedded in this website.
 - Raw CSV is read locally in the authenticated browser only.
