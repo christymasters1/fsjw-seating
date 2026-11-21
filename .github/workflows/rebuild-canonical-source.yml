@@ -26,8 +26,10 @@ jobs:
         run: |
           cmp --silent index.html src/index.html
           grep -q 'Choose the event you are seating' index.html
-          grep -q 'RBNYE 26' index.html
-          grep -q 'DJW 27' index.html
+          grep -q 'Florida Smooth Jazz Manager' index.html
+          grep -q 'eventCode">DJW' index.html
+          grep -q 'eventCode">FSJW' index.html
+          grep -q 'eventCode">RBNYE' index.html
           echo 'Canonical source verification passed.'
 
       - name: Commit canonical app
