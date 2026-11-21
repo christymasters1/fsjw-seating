@@ -359,6 +359,7 @@ button[disabled]{opacity:.58;cursor:not-allowed}
 .rbnyeRows{display:flex;flex-direction:column;gap:14px}.rbnyeRow{display:grid;grid-template-columns:4fr 6fr 4fr;align-items:center;gap:28px;min-height:55px}.rbnyeBank{display:flex;align-items:center;justify-content:center;gap:8px;min-width:0}.rbnyeTable{display:flex;align-items:center;justify-content:center;flex:0 0 46px;width:46px;height:46px;border-radius:50%;background:#f5dc4f;border:1px solid #d9bd22;color:#fff;font-size:16px;font-weight:900;line-height:1;box-shadow:0 1px 1px rgba(58,47,0,.12)}.rbnyeTable.blue{background:#2b4692;border-color:#1f3571}.rbnyeTable:hover{filter:brightness(.94)}
 .rbnyeKey{align-self:stretch;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px dashed #b6c2d6;border-radius:10px;color:var(--navy);font-size:11px;font-weight:800;text-align:center;line-height:1.35;padding:6px}.rbnyeKey b{font-size:17px}.rbnyeLegend{display:flex;flex-wrap:wrap;gap:12px;padding:0 20px 18px;color:#4f5863;font-size:12px}.rbnyeLegend span{display:flex;align-items:center;gap:6px}.rbnyeLegend i{display:inline-block;width:13px;height:13px;border-radius:50%;background:#f5dc4f;border:1px solid #d9bd22}.rbnyeLegend i.blue{background:#2b4692;border-color:#1f3571}
 @media(max-width:850px){.rbnyePreviewHead{display:block}.rbnyePreviewHead p{margin-bottom:8px}}
+.tableMap{min-width:1080px}.rbnyeLiveHead{display:flex;align-items:center;gap:16px;margin-bottom:12px}.rbnyeLiveHead .rbnyeStage{flex:1;min-height:54px;border-radius:8px;background:var(--navy);color:#fff;font-size:18px}.rbnyeLiveDance{flex:1;min-height:54px;display:flex;align-items:center;justify-content:center;border:2px solid #596270;color:#27313a;font-size:11px;font-weight:900;letter-spacing:.04em}.rbnyeLiveLegend{display:flex;flex-wrap:wrap;gap:11px;margin:0 0 12px;font-size:11px;color:#505866}.rbnyeLiveLegend span{display:flex;align-items:center;gap:5px}.rbnyeLiveLegend i{display:inline-block;width:14px;height:14px;border-radius:50%;border:1px solid #b8c0ca;background:var(--gold-seat)}.rbnyeLiveLegend i.blue{background:var(--blue-seat);border-color:#9aace6}.rbnyeLiveRows{display:flex;flex-direction:column;gap:14px;padding:3px 0 8px}.rbnyeLiveRow{display:grid;grid-template-columns:4fr 6fr 4fr;align-items:center;gap:26px;min-height:88px}.rbnyeLiveBank{display:flex;align-items:center;justify-content:center;gap:4px;min-width:0}.rbnyeLiveSpacer{min-height:88px}.rbnyeLiveTable{position:relative;flex:0 0 82px;width:82px;height:82px}.rbnyeLiveTableCircle{position:absolute;inset:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #d9c566;background:var(--gold-seat);color:#594b10;font-size:15px;font-weight:900;box-shadow:inset 0 0 0 3px rgba(255,255,255,.58)}.rbnyeLiveTable.blue .rbnyeLiveTableCircle{border-color:#9aace6;background:var(--blue-seat);color:var(--navy)}.rbnyeSeat{position:absolute!important;width:18px!important;height:18px!important;min-width:18px!important;border-radius:50%!important;padding:0!important;z-index:2;font-size:7px!important;font-weight:900!important;background:#fff!important;border:1px solid #bac2cd!important;color:#35404c!important}.rbnyeLiveTable.blue .rbnyeSeat{border-color:#91a5e3!important}.rbnyeSeat.occ{background:var(--occupied)!important;color:#fff!important;border-color:#7e858c!important}.rbnyeSeat.moving{background:var(--green)!important;color:#fff!important;border-color:#08783e!important}.rbnyeSeat.same{outline:3px solid var(--same)!important;outline-offset:1px!important}.rbnyeSeat.linked{outline:3px solid var(--linked)!important;outline-offset:1px!important}.rbnyeSeat[data-position="0"]{top:0;left:32px}.rbnyeSeat[data-position="1"]{top:3px;left:54px}.rbnyeSeat[data-position="2"]{top:18px;left:66px}.rbnyeSeat[data-position="3"]{top:42px;left:66px}.rbnyeSeat[data-position="4"]{top:61px;left:53px}.rbnyeSeat[data-position="5"]{top:64px;left:32px}.rbnyeSeat[data-position="6"]{top:61px;left:11px}.rbnyeSeat[data-position="7"]{top:42px;left:-2px}.rbnyeSeat[data-position="8"]{top:18px;left:-2px}.rbnyeSeat[data-position="9"]{top:3px;left:10px}
 @media(max-width:850px){.eventLandingHead{display:block}.eventGrid{grid-template-columns:1fr}.eventLandingHead h1{font-size:27px}}
 
 </style>
@@ -400,13 +401,13 @@ button[disabled]{opacity:.58;cursor:not-allowed}
         <span class="eventPill live">Ready for seating</span>
         <button type="button" data-event-select="fsjw26">Open FSJW 26</button>
       </article>
-      <article class="eventCard setup">
+      <article class="eventCard live">
         <div class="eventCode">RBNYE 26</div>
         <h2>Rick Braun's New Year's Eve 2026</h2>
         <p>Uses the same renewal, CSV, seating, and update rules—with a dedicated table-based seating chart.</p>
-        <div class="eventMeta">The approved 102-table chart is ready; event-isolated shared data is next.</div>
-        <span class="eventPill setup">Chart ready · data setup next</span>
-        <button type="button" class="secondary" data-event-select="rbnye26">View RBNYE 26 chart</button>
+        <div class="eventMeta">A dedicated 102-table workspace, isolated from all FSJW data.</div>
+        <span class="eventPill live">Ready for seating</span>
+        <button type="button" data-event-select="rbnye26">Open RBNYE 26</button>
       </article>
       <article class="eventCard setup">
         <div class="eventCode">DJW 27</div>
@@ -485,9 +486,9 @@ button[disabled]{opacity:.58;cursor:not-allowed}
       <div class="card">
         <div class="kicker">Seating Summary</div>
         <div class="metrics">
-          <div class="metric"><b id="blueCount" style="color:var(--navy)">0</b><span>Blue occupied</span></div>
-          <div class="metric"><b id="goldCount" style="color:#9b841c">0</b><span>Gold occupied</span></div>
-          <div class="metric"><b id="ttCount">0</b><span>TT occupied</span></div>
+          <div class="metric"><b id="blueCount" style="color:var(--navy)">0</b><span id="blueMetricLabel">Blue occupied</span></div>
+          <div class="metric"><b id="goldCount" style="color:#9b841c">0</b><span id="goldMetricLabel">Gold occupied</span></div>
+          <div class="metric"><b id="ttCount">0</b><span id="thirdMetricLabel">TT occupied</span></div>
         </div>
       </div>
       <div class="card">
@@ -504,6 +505,7 @@ button[disabled]{opacity:.58;cursor:not-allowed}
       </aside>
 
       <section class="mapcard">
+        <div id="theaterMap">
         <div class="maplegend">
           <span><i class="legendbox" style="background:var(--blue-seat);border-color:#9aace6"></i>Blue Section — Rows A–G</span>
           <span><i class="legendbox" style="background:var(--gold-seat);border-color:#d9c566"></i>Gold Section — Rows H–DD</span>
@@ -530,6 +532,8 @@ button[disabled]{opacity:.58;cursor:not-allowed}
             </div>
           </div>
         </div>
+        </div>
+        <div id="tableMap" class="tableMap" hidden aria-label="RBNYE table seating chart"></div>
       </section>
 
       <aside class="upcomingPanel" aria-label="Reservations to seat next">
@@ -591,9 +595,18 @@ const AUTHKEY = "fsjw_seating_manager_auth_2026";
 const ACTIVE_EVENT_KEY = "fsjw_seating_manager_active_event";
 const EVENTS = Object.freeze({
   fsjw26:{id:"fsjw26",code:"FSJW 26",name:"Florida Smooth Jazz Weekend 2026",chartType:"theater",ready:true},
-  rbnye26:{id:"rbnye26",code:"RBNYE 26",name:"Rick Braun's New Year's Eve 2026",chartType:"tables",ready:false},
+  rbnye26:{id:"rbnye26",code:"RBNYE 26",name:"Rick Braun's New Year's Eve 2026",chartType:"tables",ready:true},
   djw27:{id:"djw27",code:"DJW 27",name:"Daytona Jazz Weekend 2027",chartType:"pending",ready:false}
 });
+
+// Every mutable operational table is event-scoped.  The request wrapper below
+// injects this key into both reads and writes, so a selected event cannot
+// accidentally read, replace, or delete another annual event's data.
+const EVENT_SCOPED_TABLES = new Set([
+  "reservations", "reservation_guests", "seat_assignments", "seating_groups",
+  "group_members", "rezmagic_changes", "audit_log", "import_batches",
+  "snapshots", "historical_guest_records", "historical_links"
+]);
 
 // Source: approved RBNYE 26 seating chart. Each numbered circle is one
 // ten-person table; blue is the chart's blue-table section.
@@ -640,6 +653,27 @@ function rbnyePreviewMarkup() {
   '</section>';
 }
 
+function rbnyeSeatId(tableNumber, seatNumber) {
+  return "T" + String(tableNumber).padStart(3, "0") + "-" + String(seatNumber).padStart(2, "0");
+}
+
+function rbnyeTableNumberFromSeat(seatId) {
+  const match = String(seatId || "").toUpperCase().match(/^T(\d{3})-\d{2}$/);
+  return match ? Number(match[1]) : null;
+}
+
+function seatingSection(seatId) {
+  const seat = String(seatId || "").toUpperCase();
+  if (activeEvent()?.chartType === "tables") {
+    const tableNumber = rbnyeTableNumberFromSeat(seat);
+    if (!tableNumber) return null;
+    return RBNYE_BLUE_TABLES.has(tableNumber) ? "blue" : "gold";
+  }
+  if (/^TT\d{2}$/.test(seat)) return "tt";
+  const row = seat.match(/^([A-Z]+)/)?.[1];
+  return row ? (BLUE_ROWS.has(row) ? "blue" : "gold") : null;
+}
+
 function storedEventId() {
   try {
     const id = localStorage.getItem(ACTIVE_EVENT_KEY);
@@ -660,6 +694,7 @@ function selectEvent(eventId) {
   selectedRez = null;
   selectedGuest = null;
   showApp();
+  if (typeof window.reloadSeatingHistory === "function") window.reloadSeatingHistory();
   if (EVENTS[eventId].ready && session) loadAll();
 }
 
@@ -764,9 +799,54 @@ function authHeaders(extra={}) {
   }, extra);
 }
 
+function tableNameFromPath(path) {
+  return String(path || "").split("?", 1)[0].split("/", 1)[0];
+}
+
+function currentEventId() {
+  const event = activeEvent();
+  if (!event) throw new Error("Choose an event before using shared seating data.");
+  return event.id;
+}
+
+function eventScopedPath(path) {
+  const table = tableNameFromPath(path);
+  if (!EVENT_SCOPED_TABLES.has(table)) return path;
+  if (/[?&]event_id=/.test(path)) return path;
+  const join = String(path).includes("?") ? "&" : "?";
+  return String(path) + join + "event_id=eq." + encodeURIComponent(currentEventId());
+}
+
+function eventScopedOptions(path, options) {
+  const table = tableNameFromPath(path);
+  const method = String(options?.method || "GET").toUpperCase();
+  if (!EVENT_SCOPED_TABLES.has(table) || !["POST", "PATCH"].includes(method) || !options?.body) return options;
+
+  let data;
+  try { data = JSON.parse(options.body); }
+  catch { throw new Error("Operational data must be valid JSON before it can be event-scoped."); }
+
+  const eventId = currentEventId();
+  const tagRow = row => {
+    if (!row || Array.isArray(row) || typeof row !== "object") {
+      throw new Error("Operational data must be an object before it can be event-scoped.");
+    }
+    if (row.event_id && row.event_id !== eventId) {
+      throw new Error("A write was blocked because it targeted a different event.");
+    }
+    return Object.assign({}, row, {event_id:eventId});
+  };
+
+  return Object.assign({}, options, {
+    body:JSON.stringify(Array.isArray(data) ? data.map(tagRow) : tagRow(data))
+  });
+}
+
 async function api(path, options={}) {
-  const headers = authHeaders(Object.assign({"Content-Type":"application/json"}, options.headers || {}));
-  const response = await fetch(SB_URL + "/rest/v1/" + path, Object.assign({}, options, {headers}));
+  const scopedPath = eventScopedPath(path);
+  const scopedOptions = eventScopedOptions(path, options);
+  const headers = authHeaders(Object.assign({"Content-Type":"application/json"}, scopedOptions.headers || {}));
+  const response = await fetch(SB_URL + "/rest/v1/" + scopedPath, Object.assign({}, scopedOptions, {headers}));
   if (!response.ok) {
     const detail = (await response.text()) || "Request failed";
     if (response.status === 401) {
@@ -1390,18 +1470,22 @@ function renderSummary() {
   }
 
   let blue = 0, gold = 0, tt = 0;
+  const usedTables = new Set();
   for (const a of assignments) {
     const seat = String(a.seat_id || "");
-    if (/^TT\d{2}$/.test(seat)) tt++;
-    else {
-      const row = seat.match(/^([A-Z]+)/)?.[1];
-      if (row && BLUE_ROWS.has(row)) blue++;
-      else if (row) gold++;
-    }
+    const section = seatingSection(seat);
+    if (section === "blue") blue++;
+    else if (section === "gold") gold++;
+    else if (section === "tt") tt++;
+    const tableNumber = rbnyeTableNumberFromSeat(seat);
+    if (tableNumber) usedTables.add(tableNumber);
   }
   $("blueCount").textContent = blue;
   $("goldCount").textContent = gold;
-  $("ttCount").textContent = tt;
+  $("ttCount").textContent = activeEvent()?.chartType === "tables" ? usedTables.size : tt;
+  $("blueMetricLabel").textContent = activeEvent()?.chartType === "tables" ? "Blue table seats" : "Blue occupied";
+  $("goldMetricLabel").textContent = activeEvent()?.chartType === "tables" ? "Gold table seats" : "Gold occupied";
+  $("thirdMetricLabel").textContent = activeEvent()?.chartType === "tables" ? "Tables in use" : "TT occupied";
   $("dbStats").textContent = reservations.length + " reservations · " + guests.length + " guests · " + assignments.length + " assigned";
 }
 
@@ -1690,6 +1774,73 @@ function createTTItem(a, b, sameSeats, linkedSeats, movingSeat) {
   return item;
 }
 
+function createRbnyeSeat(tableNumber, seatNumber, sameSeats, linkedSeats, movingSeat) {
+  const code = rbnyeSeatId(tableNumber, seatNumber);
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "seat rbnyeSeat";
+  button.dataset.seatId = code;
+  button.dataset.position = String(seatNumber - 1);
+  button.textContent = seatNumber;
+  button.setAttribute("aria-label", "Table " + tableNumber + ", seat " + seatNumber);
+
+  const occupant = assignments.find(a => String(a.seat_id) === code);
+  if (occupant) button.classList.add("occ");
+  if (sameSeats.has(code)) button.classList.add("same");
+  if (linkedSeats.has(code)) button.classList.add("linked");
+  if (String(movingSeat || "") === code) button.classList.add("moving");
+  button.title = occupant
+    ? "Table " + tableNumber + " · Seat " + seatNumber + " · " + occupant.guest_name + " · Rez #" + occupant.rez_id
+    : "Empty · Table " + tableNumber + " · Seat " + seatNumber;
+  button.addEventListener("click", () => openSeatReservation(occupant, code));
+  return button;
+}
+
+function createRbnyeLiveTable(tableNumber, sameSeats, linkedSeats, movingSeat) {
+  const table = document.createElement("div");
+  table.className = "rbnyeLiveTable" + (RBNYE_BLUE_TABLES.has(tableNumber) ? " blue" : "");
+  table.dataset.tableId = String(tableNumber);
+  const circle = document.createElement("div");
+  circle.className = "rbnyeLiveTableCircle";
+  circle.textContent = tableNumber;
+  circle.title = "Table " + tableNumber + " · 10 seats";
+  table.appendChild(circle);
+  for (let seatNumber = 1; seatNumber <= 10; seatNumber++) {
+    table.appendChild(createRbnyeSeat(tableNumber, seatNumber, sameSeats, linkedSeats, movingSeat));
+  }
+  return table;
+}
+
+function renderRbnyeMap(sameSeats, linkedSeats, movingSeat) {
+  const host = $("tableMap");
+  host.innerHTML = "";
+
+  const head = document.createElement("div");
+  head.className = "rbnyeLiveHead";
+  head.innerHTML = '<div class="rbnyeLiveDance">VIDEO SCREEN · DANCE FLOOR</div><div class="rbnyeStage">STAGE</div><div class="rbnyeLiveDance">VIDEO SCREEN · DANCE FLOOR</div>';
+  host.appendChild(head);
+
+  const legend = document.createElement("div");
+  legend.className = "rbnyeLiveLegend";
+  legend.innerHTML = '<span><i class="blue"></i>Blue tables: 4–9, 17–22, 31–36, 45–49</span><span><i></i>Gold tables: all remaining tables</span><span><i style="background:var(--occupied)"></i>Occupied</span><span><i style="outline:3px solid var(--same);background:#fff"></i>Same reservation</span><span><i style="outline:3px solid var(--linked);background:#fff"></i>Linked reservation</span>';
+  host.appendChild(legend);
+
+  const rows = document.createElement("div");
+  rows.className = "rbnyeLiveRows";
+  RBNYE_TABLE_ROWS.forEach(row => {
+    const rowEl = document.createElement("div");
+    rowEl.className = "rbnyeLiveRow";
+    row.forEach(bank => {
+      const bankEl = document.createElement("div");
+      bankEl.className = bank.length ? "rbnyeLiveBank" : "rbnyeLiveSpacer";
+      bank.forEach(tableNumber => bankEl.appendChild(createRbnyeLiveTable(tableNumber, sameSeats, linkedSeats, movingSeat)));
+      rowEl.appendChild(bankEl);
+    });
+    rows.appendChild(rowEl);
+  });
+  host.appendChild(rows);
+}
+
 function renderMap() {
   const sameSeats = new Set(selectedRez ? rezSeats(selectedRez).map(a => String(a.seat_id)) : []);
   const selectedChange = selectedGuest ? latestOpenChange(selectedGuest) : null;
@@ -1698,6 +1849,14 @@ function renderMap() {
     : null;
   const linkedRez = selectedRez ? linkedRezIds(selectedRez) : [];
   const linkedSeats = new Set(linkedRez.flatMap(id => rezSeats(id)).map(a => String(a.seat_id)));
+
+  const tableMode = activeEvent()?.chartType === "tables";
+  $("theaterMap").hidden = tableMode;
+  $("tableMap").hidden = !tableMode;
+  if (tableMode) {
+    renderRbnyeMap(sameSeats, linkedSeats, movingSeat);
+    return;
+  }
 
   const rowHost = $("rows");
   rowHost.innerHTML = "";
@@ -1941,6 +2100,17 @@ function looksLikeSeat(value) {
 // always compare the same identifier.
 function normalizeSeatId(value) {
   const raw = String(value || "").trim().toUpperCase().replace(/\s+/g, "");
+  if (activeEvent()?.chartType === "tables") {
+    const tableSeat =
+      raw.match(/^T(?:ABLE)?(\d{1,3})[-_/](?:S(?:EAT)?)?(\d{1,2})$/) ||
+      raw.match(/^T(?:ABLE)?(\d{1,3})(?:S|SEAT)(\d{1,2})$/) ||
+      raw.match(/^(\d{1,3})[-_/](\d{1,2})$/);
+    if (!tableSeat) return null;
+    const tableNumber = Number(tableSeat[1]);
+    const seatNumber = Number(tableSeat[2]);
+    if (tableNumber < 1 || tableNumber > 102 || seatNumber < 1 || seatNumber > 10) return null;
+    return rbnyeSeatId(tableNumber, seatNumber);
+  }
   const table = raw.match(/^TT(\d{1,2})$/);
   if (table) return "TT" + table[1].padStart(2, "0");
   const seat = raw.match(/^([A-HJ-NP-TV-Z]{1,2})(\d{1,2})$/);
@@ -2139,7 +2309,10 @@ async function preflightCSV(file) {
     // Reject incomplete exports before any live data is changed.
     const validatedSeats = importedSeatSnapshot(seatRows);
     if (!validatedSeats.bySeat.size) {
-      throw new Error("No assigned seats were found. Check RezMagic export columns; live seating was not changed.");
+      const expectedSeatHelp = activeEvent()?.chartType === "tables"
+        ? "RBNYE rows must identify both table and chair, for example T004-01 or Table 4 Seat 1."
+        : "Check RezMagic export columns.";
+      throw new Error("No assigned seats were found. " + expectedSeatHelp + " Live seating was not changed.");
     }
     if (assignments.length >= 50 && validatedSeats.bySeat.size < assignments.length * 0.8) {
       throw new Error("Only " + validatedSeats.bySeat.size + " assigned seats were recognized versus " + assignments.length +
@@ -2344,7 +2517,7 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
   try {
     deletionStarted = true;
     await api("seat_assignments?seat_id=not.is.null", {method:"DELETE", headers:{Prefer:"return=minimal"}});
-    await chunkedUpsert("seat_assignments", assignmentPayload, "seat_id", 100);
+    await chunkedUpsert("seat_assignments", assignmentPayload, "event_id,seat_id", 100);
     const persisted = await apiAll("seat_assignments?select=seat_id,guest_id,rez_id");
     const expected = new Map(assignmentPayload.map(a => [String(a.seat_id).toUpperCase(), String(a.guest_id)]));
     if (persisted.length !== expected.size || persisted.some(a =>
@@ -2355,7 +2528,7 @@ async function applyAuthoritativeRezMagicSeats(rows, importedRezIds, now) {
     if (deletionStarted) {
       try {
         await api("seat_assignments?seat_id=not.is.null", {method:"DELETE", headers:{Prefer:"return=minimal"}});
-        await chunkedUpsert("seat_assignments", previousAssignments, "seat_id", 100);
+        await chunkedUpsert("seat_assignments", previousAssignments, "event_id,seat_id", 100);
       } catch (restoreError) {
         throw new Error("CRITICAL: seating import failed and automatic restore failed: " + restoreError.message +
           ". Restore the automatic pre-import snapshot. Original error: " + writeError.message);
@@ -2456,7 +2629,7 @@ async function executeImport() {
       status:"active",
       updated_at:now
     }));
-    await chunkedUpsert("reservations", reservationPayload, "rez_id", 100);
+    await chunkedUpsert("reservations", reservationPayload, "event_id,rez_id", 100);
 
     // The RezMagic file is the complete active roster. Anything that was
     // previously active but is absent from this import must leave the seating
@@ -2498,7 +2671,7 @@ async function executeImport() {
     p.rezVals.forEach(v => v.guests.forEach(name => {
       guestPayload.push({rez_id:v.rez_id, guest_name:name});
     }));
-    await chunkedUpsert("reservation_guests", guestPayload, "rez_id,guest_name", 100);
+    await chunkedUpsert("reservation_guests", guestPayload, "event_id,rez_id,guest_name", 100);
 
     await loadAll({quiet:true});
 
@@ -3832,9 +4005,15 @@ setInterval(() => {
   async function sha256(v){const raw=String(v||"").trim().toLowerCase();if(!raw||!crypto?.subtle)return null;const bytes=new TextEncoder().encode(raw);const hash=await crypto.subtle.digest("SHA-256",bytes);return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,"0")).join("");}
   function normalizePhone(v){return String(v||"").replace(/\D/g,"").slice(-10);}
   function normalizeEmail(v){return String(v||"").trim().toLowerCase();}
+  function historicalSeatId(value){
+    if(typeof normalizeSeatId==="function")return normalizeSeatId(value);
+    const raw=String(value||"").trim().toUpperCase();
+    return SEAT_CODE.test(raw)?raw:null;
+  }
 
   async function loadHistory(){
     if(historyLoading)return;
+    if(typeof activeEvent==="function"&&!activeEvent())return;
     historyLoading=true;
     try{
       historicalRecords=await apiAll("historical_guest_records?select=*&event_year=eq."+HISTORY_YEAR+"&order=guest_name.asc");
@@ -3844,6 +4023,12 @@ setInterval(() => {
     }catch(e){console.error("Historical seating load failed",e);}
     finally{historyLoading=false;}
   }
+  window.reloadSeatingHistory=function(){
+    historicalRecords=[];
+    historicalLinks=[];
+    historyReady=false;
+    return loadHistory();
+  };
   function recordsForRez(rezId){return historicalRecords.filter(r=>String(r.matched_rez_id||"")===String(rezId||""));}
   function linkedRezIds(rezId){const id=String(rezId||""),out=[];historicalLinks.forEach(l=>{if(String(l.matched_rez_id)===id)out.push(String(l.linked_rez_id));if(String(l.linked_rez_id)===id)out.push(String(l.matched_rez_id));});return unique(out).filter(x=>x!==id);}
 
@@ -3928,14 +4113,14 @@ setInterval(() => {
     const required=["RezId1","PartyName","AddOnProductName","AddOnCategoryName","RezComments","GuestComments"],missing=required.filter(h=>!(h in rows[0]));if(missing.length)throw new Error("Missing 2025 columns: "+missing.join(", "));
     const dates=rows.map(r=>String(r.AdjStartDate||"")).filter(Boolean).slice(0,50).join(" ");if(dates&&!dates.includes("2025"))throw new Error("This file does not appear to be the 2025 event export.");
     const byKey=new Map();
-    rows.forEach(source=>{const rez=String(source.RezId1||"").trim(),name=String(source.PartyName||"").trim(),n=norm(name);if(!rez||!name||!n)return;const key=rez+"|"+n;if(!byKey.has(key))byKey.set(key,{event_year:HISTORY_YEAR,historical_rez_id:rez,guest_name:name,normalized_guest_name:n,seat_id:null,reservation_comments:"",guest_comments:"",room_type:String(source.PrimaryCategoryCode||"").trim()||null,seat_upgrade_status:null,matched_rez_id:null,match_method:"unmatched",email:normalizeEmail(source.Email),phone:normalizePhone(source.ContactPhone),source_file:file.name});const item=byKey.get(key),product=String(source.AddOnProductName||"").trim(),addon=String(source.AddOnCategoryName||"").trim().toUpperCase();if(ASSIGNED_SEATING_PRODUCT.test(product)&&SEAT_CODE.test(addon))item.seat_id=addon;if(addon==="SUP")item.seat_upgrade_status="YES on reservation";item.reservation_comments=item.reservation_comments||cleanComment(source.RezComments);item.guest_comments=item.guest_comments||cleanComment(source.GuestComments);});
+    rows.forEach(source=>{const rez=String(source.RezId1||"").trim(),name=String(source.PartyName||"").trim(),n=norm(name);if(!rez||!name||!n)return;const key=rez+"|"+n;if(!byKey.has(key))byKey.set(key,{event_year:HISTORY_YEAR,historical_rez_id:rez,guest_name:name,normalized_guest_name:n,seat_id:null,reservation_comments:"",guest_comments:"",room_type:String(source.PrimaryCategoryCode||"").trim()||null,seat_upgrade_status:null,matched_rez_id:null,match_method:"unmatched",email:normalizeEmail(source.Email),phone:normalizePhone(source.ContactPhone),source_file:file.name});const item=byKey.get(key),product=String(source.AddOnProductName||"").trim(),addon=String(source.AddOnCategoryName||"").trim().toUpperCase(),seat=historicalSeatId(addon);if(ASSIGNED_SEATING_PRODUCT.test(product)&&seat)item.seat_id=seat;if(addon==="SUP")item.seat_upgrade_status="YES on reservation";item.reservation_comments=item.reservation_comments||cleanComment(source.RezComments);item.guest_comments=item.guest_comments||cleanComment(source.GuestComments);});
     const nameIndex=currentGuestIndex(),records=[];
     for(const item of byKey.values()){item.email_hash=await sha256(item.email);item.phone_hash=await sha256(item.phone);delete item.email;delete item.phone;const exact=nameIndex.get(item.normalized_guest_name)||[];if(exact.length===1){item.matched_rez_id=String(exact[0].rez_id);item.match_method="exact name";}records.push(item);}
     setStatus("Replacing 2025 historical seating…","busy");
     await api("historical_links?event_year=eq."+HISTORY_YEAR,{method:"DELETE",headers:{Prefer:"return=minimal"}});
     await api("historical_guest_records?event_year=eq."+HISTORY_YEAR,{method:"DELETE",headers:{Prefer:"return=minimal"}});
-    await chunkedUpsert("historical_guest_records",records,"event_year,historical_rez_id,normalized_guest_name",100);
-    const links=buildHistoricalLinks(records);if(links.length)await chunkedUpsert("historical_links",links,"event_year,matched_rez_id,linked_rez_id",100);
+    await chunkedUpsert("historical_guest_records",records,"event_id,event_year,historical_rez_id,normalized_guest_name",100);
+    const links=buildHistoricalLinks(records);if(links.length)await chunkedUpsert("historical_links",links,"event_id,event_year,matched_rez_id,linked_rez_id",100);
     historicalRecords=records;historicalLinks=links;historyReady=true;scheduleHistoryRender();if(typeof window.renderAll==="function")window.renderAll();
     return{records:records.length,matched:records.filter(r=>r.matched_rez_id).length,links:links.length};
   }
