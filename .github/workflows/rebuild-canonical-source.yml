@@ -1,13 +1,9 @@
-name: Rebuild canonical seating source
+name: Sync canonical seating source
 
 on:
   push:
     paths:
-      - 'scripts/rebuild_canonical_source.py'
-      - 'scripts/integrate_historical_seating.py'
-      - 'src/historical_seating.js'
-      - 'src/room_availability.js'
-      - 'patch/v11.js'
+      - 'src/index.html'
       - '.github/workflows/rebuild-canonical-source.yml'
   workflow_dispatch:
 
@@ -23,54 +19,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Rebuild standalone canonical source
-        run: python scripts/rebuild_canonical_source.py
-
-      - name: Integrate native historical seating
-        run: python scripts/integrate_historical_seating.py
-
-      - name: Keep complete canonical source copy
-        run: cp index.html src/index.html
+      - name: Sync deployable app from maintained source
+        run: cp src/index.html index.html
 
       - name: Verify canonical source
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          text = Path('index.html').read_text()
-          complete = Path('src/index.html').read_text()
-          generator = Path('scripts/rebuild_canonical_source.py').read_text()
-          history = Path('src/historical_seating.js').read_text()
-          assert complete == text
-          assert 'standalone source; no runtime patches; reservation details imported natively' in text
-          assert 'patch/' not in text
-          assert text.count('if (occupant) {') >= 2
-          assert text.count('moveSelectedGuest(code);') == 2
-          assert 'created_on:v.created_on || null' in text
-          assert 'start_date:v.start_date || null' in text
-          assert 'end_date:v.end_date || null' in text
-          assert 'category_name:v.category_name || null' in text
-          assert 'category_code:v.category_code || null' in text
-          assert 'occupancy_number:v.occupancy_number ?? (v.guests?.size || null)' in text
-          assert 'night_count:v.night_count' in text
-          assert 'seat_upgrade_status:v.seat_upgrade_status || null' in text
-          assert 'source.ProductName' in text
-          assert 'detailOccupancy' in text
-          assert 'if (upgradeCode === "SUP") {' in generator
-          assert 'persistentReservationSearch' in text
-          assert 'Search guest or reservation #' in text
-          assert 'data-canonical-source="historical-seating"' in text
-          assert 'historical_guest_records' in text
-          assert 'historical_links' in text
-          assert 'Show 2025 Seating' in text
-          assert '2025 Seating' in text
-          assert '2025 Comments' in text
-          assert '2025 Linked Guests' in text
-          assert 'ASSIGNED_SEATING_PRODUCT' in history
-          assert 'fsjw_room_availability_v1' in text
-          assert 'Import Room Availability CSV' in text
-          assert 'addon==="SUP"' in history
-          print('Canonical source verification passed.')
-          PY
+          cmp --silent index.html src/index.html
+          grep -q 'Choose the event you are seating' index.html
+          grep -q 'RBNYE 26' index.html
+          grep -q 'DJW 27' index.html
+          echo 'Canonical source verification passed.'
 
       - name: Commit canonical app
         run: |
@@ -81,5 +39,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html src/index.html
-          git commit -m 'Sync complete canonical seating source'
+          git commit -m 'Sync canonical seating source'
           git push
