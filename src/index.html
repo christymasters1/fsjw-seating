@@ -413,7 +413,7 @@ button[disabled]{opacity:.58;cursor:not-allowed}
         <div class="eventCode">RBNYE</div>
         <h2>Rick Braun's New Year's Eve</h2>
         <p>Uses the same renewal, CSV, seating, and update rules—with a dedicated table-based seating chart.</p>
-        <div class="eventMeta">A dedicated 102-table workspace, isolated from every other event's data.</div>
+        <div class="eventMeta">A dedicated 108-table workspace, isolated from every other event's data.</div>
         <span class="eventPill live">Ready for seating</span>
         <button type="button" data-event-select="rbnye26">Open RBNYE</button>
       </article>
@@ -608,28 +608,33 @@ const EVENT_SCOPED_TABLES = new Set([
   "snapshots", "historical_guest_records", "historical_links"
 ]);
 
-// Source: approved RBNYE 26 seating chart. Each numbered circle is one
-// ten-person table; blue is the chart's blue-table section.
+// Source: current RBNYE seating chart. Each numbered circle is one ten-person
+// table; blue is the chart's blue-table section. Table 00 is a real blue table.
 const RBNYE_TABLE_ROWS = Object.freeze([
   [[89,1,2,3],[4,5,6,7,8,9],[10,11,12,90]],
   [[13,14,15,16],[17,18,19,20,21,22],[23,24,25,26]],
   [[27,28,29,30],[31,32,33,34,35,36],[37,38,39,40]],
-  [[41,42,43,44],[45,46,47,48,49],[50,51,52,53]],
+  [[41,42,43,44],[45,46,47,48,49,0],[50,51,52,53]],
   [[54,55,56,57],[58,59,60,61,62],[63,64,65,66]],
   [[67,68,69,70],[71,72,73,74,75],[76,77,78,79]],
-  [[80,81,82,83],[91,92,93,94],[84,85,86,87,88]],
-  [[95,96,97,98],[],[99,100,101,102]]
+  [[80,81,82,83],[91,92,93,94,84],[85,86,87,88]],
+  [[95,96,97,98],[99,100,101,102,103],[104,105,106,107]]
 ]);
 const RBNYE_BLUE_TABLES = new Set([
-  4,5,6,7,8,9,
+  0,4,5,6,7,8,9,
   17,18,19,20,21,22,
   31,32,33,34,35,36,
   45,46,47,48,49
 ]);
 
+function rbnyeTableLabel(tableNumber) {
+  return Number(tableNumber) === 0 ? "00" : String(tableNumber);
+}
+
 function rbnyeTableMarkup(tableNumber) {
   const tone = RBNYE_BLUE_TABLES.has(tableNumber) ? " blue" : "";
-  return '<div class="rbnyeTable' + tone + '" data-table-id="' + tableNumber + '" title="Table ' + tableNumber + ' · 10 seats">' + tableNumber + '</div>';
+  const label = rbnyeTableLabel(tableNumber);
+  return '<div class="rbnyeTable' + tone + '" data-table-id="' + tableNumber + '" title="Table ' + label + ' · 10 seats">' + label + '</div>';
 }
 
 function rbnyeRowMarkup(row, isLastRow) {
@@ -644,12 +649,12 @@ function rbnyeRowMarkup(row, isLastRow) {
 
 function rbnyePreviewMarkup() {
   return '<section class="rbnyePreview" aria-label="Rick Braun New Year’s Eve table chart">' +
-    '<header class="rbnyePreviewHead"><div><div class="eventCode">RBNYE · Seating chart</div><h2>Rick Braun’s New Year’s Eve table layout</h2><p>102 numbered tables · 10 seats per table · 1,020-seat table capacity.</p></div></header>' +
+    '<header class="rbnyePreviewHead"><div><div class="eventCode">RBNYE · Seating chart</div><h2>Rick Braun’s New Year’s Eve table layout</h2><p>108 numbered tables · 10 seats per table · 1,080-seat table capacity.</p></div></header>' +
     '<div class="rbnyeMapScroll"><div class="rbnyeMap">' +
       '<div class="rbnyeRoomFront"><div class="rbnyeDanceFloor"><small>VIDEO SCREEN</small>DANCE FLOOR</div><div class="rbnyeStage">STAGE</div><div class="rbnyeDanceFloor"><small>VIDEO SCREEN</small>DANCE FLOOR</div></div>' +
       '<div class="rbnyeRows">' + RBNYE_TABLE_ROWS.map((row, index) => rbnyeRowMarkup(row, index === RBNYE_TABLE_ROWS.length - 1)).join("") + '</div>' +
     '</div></div>' +
-    '<div class="rbnyeLegend"><span><i class="blue"></i>Blue tables: 4–9, 17–22, 31–36, 45–49</span><span><i></i>Gold tables: all remaining numbered tables</span></div>' +
+    '<div class="rbnyeLegend"><span><i class="blue"></i>Blue tables: 00, 4–9, 17–22, 31–36, 45–49</span><span><i></i>Gold tables: all remaining numbered tables</span></div>' +
   '</section>';
 }
 
@@ -666,7 +671,7 @@ function seatingSection(seatId) {
   const seat = String(seatId || "").toUpperCase();
   if (activeEvent()?.chartType === "tables") {
     const tableNumber = rbnyeTableNumberFromSeat(seat);
-    if (!tableNumber) return null;
+    if (tableNumber === null) return null;
     return RBNYE_BLUE_TABLES.has(tableNumber) ? "blue" : "gold";
   }
   if (/^TT\d{2}$/.test(seat)) return "tt";
@@ -1479,7 +1484,7 @@ function renderSummary() {
     else if (section === "gold") gold++;
     else if (section === "tt") tt++;
     const tableNumber = rbnyeTableNumberFromSeat(seat);
-    if (tableNumber) usedTables.add(tableNumber);
+    if (tableNumber !== null) usedTables.add(tableNumber);
   }
   $("blueCount").textContent = blue;
   $("goldCount").textContent = gold;
@@ -1777,13 +1782,14 @@ function createTTItem(a, b, sameSeats, linkedSeats, movingSeat) {
 
 function createRbnyeSeat(tableNumber, seatNumber, sameSeats, linkedSeats, movingSeat) {
   const code = rbnyeSeatId(tableNumber, seatNumber);
+  const tableLabel = rbnyeTableLabel(tableNumber);
   const button = document.createElement("button");
   button.type = "button";
   button.className = "seat rbnyeSeat";
   button.dataset.seatId = code;
   button.dataset.position = String(seatNumber - 1);
   button.textContent = seatNumber;
-  button.setAttribute("aria-label", "Table " + tableNumber + ", seat " + seatNumber);
+  button.setAttribute("aria-label", "Table " + tableLabel + ", seat " + seatNumber);
 
   const occupant = assignments.find(a => String(a.seat_id) === code);
   if (occupant) button.classList.add("occ");
@@ -1791,8 +1797,8 @@ function createRbnyeSeat(tableNumber, seatNumber, sameSeats, linkedSeats, moving
   if (linkedSeats.has(code)) button.classList.add("linked");
   if (String(movingSeat || "") === code) button.classList.add("moving");
   button.title = occupant
-    ? "Table " + tableNumber + " · Seat " + seatNumber + " · " + occupant.guest_name + " · Rez #" + occupant.rez_id
-    : "Empty · Table " + tableNumber + " · Seat " + seatNumber;
+    ? "Table " + tableLabel + " · Seat " + seatNumber + " · " + occupant.guest_name + " · Rez #" + occupant.rez_id
+    : "Empty · Table " + tableLabel + " · Seat " + seatNumber;
   button.addEventListener("click", () => openSeatReservation(occupant, code));
   return button;
 }
@@ -1803,8 +1809,9 @@ function createRbnyeLiveTable(tableNumber, sameSeats, linkedSeats, movingSeat) {
   table.dataset.tableId = String(tableNumber);
   const circle = document.createElement("div");
   circle.className = "rbnyeLiveTableCircle";
-  circle.textContent = tableNumber;
-  circle.title = "Table " + tableNumber + " · 10 seats";
+  const tableLabel = rbnyeTableLabel(tableNumber);
+  circle.textContent = tableLabel;
+  circle.title = "Table " + tableLabel + " · 10 seats";
   table.appendChild(circle);
   for (let seatNumber = 1; seatNumber <= 10; seatNumber++) {
     table.appendChild(createRbnyeSeat(tableNumber, seatNumber, sameSeats, linkedSeats, movingSeat));
@@ -1823,7 +1830,7 @@ function renderRbnyeMap(sameSeats, linkedSeats, movingSeat) {
 
   const legend = document.createElement("div");
   legend.className = "rbnyeLiveLegend";
-  legend.innerHTML = '<span><i class="blue"></i>Blue tables: 4–9, 17–22, 31–36, 45–49</span><span><i></i>Gold tables: all remaining tables</span><span><i style="background:var(--occupied)"></i>Occupied</span><span><i style="outline:3px solid var(--same);background:#fff"></i>Same reservation</span><span><i style="outline:3px solid var(--linked);background:#fff"></i>Linked reservation</span>';
+  legend.innerHTML = '<span><i class="blue"></i>Blue tables: 00, 4–9, 17–22, 31–36, 45–49</span><span><i></i>Gold tables: all remaining tables</span><span><i style="background:var(--occupied)"></i>Occupied</span><span><i style="outline:3px solid var(--same);background:#fff"></i>Same reservation</span><span><i style="outline:3px solid var(--linked);background:#fff"></i>Linked reservation</span>';
   host.appendChild(legend);
 
   const rows = document.createElement("div");
@@ -2103,13 +2110,13 @@ function normalizeSeatId(value) {
   const raw = String(value || "").trim().toUpperCase().replace(/\s+/g, "");
   if (activeEvent()?.chartType === "tables") {
     const tableSeat =
-      raw.match(/^T(?:ABLE)?(\d{1,3})[-_/](?:S(?:EAT)?)?(\d{1,2})$/) ||
+      raw.match(/^T(?:ABLE)?(\d{1,3})[-_/.](?:S(?:EAT)?)?(\d{1,2})$/) ||
       raw.match(/^T(?:ABLE)?(\d{1,3})(?:S|SEAT)(\d{1,2})$/) ||
-      raw.match(/^(\d{1,3})[-_/](\d{1,2})$/);
+      raw.match(/^(\d{1,3})[-_/.](\d{1,2})$/);
     if (!tableSeat) return null;
     const tableNumber = Number(tableSeat[1]);
     const seatNumber = Number(tableSeat[2]);
-    if (tableNumber < 1 || tableNumber > 102 || seatNumber < 1 || seatNumber > 10) return null;
+    if (tableNumber < 0 || tableNumber > 107 || seatNumber < 1 || seatNumber > 10) return null;
     return rbnyeSeatId(tableNumber, seatNumber);
   }
   const table = raw.match(/^TT(\d{1,2})$/);
@@ -2189,6 +2196,7 @@ async function preflightCSV(file) {
 
     const byRez = new Map();
     const seatRows = [];
+    const invalidTableAssignments = [];
     const held = [];
     const removed = {email:0, phone:0, address:0, card:0};
 
@@ -2273,13 +2281,24 @@ async function preflightCSV(file) {
 
       const addon = importValue(source, ["AddOnCategoryName"]);
       const addonProduct = importValue(source, ["AddOnProductName"]);
-      const assignedSeatValue = importValue(source, ["Thursday/Friday/Saturday Assigned Seating", "Assigned Seating"]);
-      // RezMagic exports the physical seat in AddOnCategoryName; the
-      // product description can vary between exports. A valid seat token
-      // wins over the descriptive assigned-seating column, which can lag.
+      const assignedSeatValue = importValue(source, [
+        "Thursday/Friday/Saturday Assigned Seating",
+        "Assigned Seating",
+        "Table Seating Assignment Both Nights"
+      ]);
+      // The RBNYE add-on export is pivoted: a row named "Table Seating
+      // Assignment Both Nights" stores the physical chair in
+      // AddOnCategoryName as table.chair (for example, 29.03 = table 29,
+      // chair 3). Other RezMagic exports can supply the same value directly
+      // in an assigned-seating column.
       const addonSeat = normalizeSeatId(addon);
       const columnSeat = normalizeSeatId(assignedSeatValue);
       const normalizedSeat = addonSeat || columnSeat;
+      const isRbnyeTableAssignment = activeEvent()?.chartType === "tables" &&
+        /table\s+seating\s+assignment\s+both\s+nights/i.test(addonProduct);
+      if (isRbnyeTableAssignment && addon && !normalizedSeat) {
+        invalidTableAssignments.push({rez_id:rezId, assignment:addon});
+      }
       if (addon && !looksLikeSeat(addon)) {
         const cleaned = privacyClean(addon);
         if (cleaned.flags.length) {
@@ -2307,16 +2326,19 @@ async function preflightCSV(file) {
       }
     }
 
-    // FSJW's daily file is the complete seating source. RBNYE's daily
-    // roster/add-on export can carry guest and dinner data with no table/chair
-    // rows, so an unseated RBNYE file updates guests without touching the
-    // table assignments already managed here.
+    // Reject incomplete exports before any live data is changed.
+    if (invalidTableAssignments.length) {
+      const invalidValues = [...new Set(invalidTableAssignments.map(row => row.assignment))];
+      throw new Error(
+        "RBNYE table assignments must be on the 00–107 table chart with chairs 1–10. " +
+        invalidTableAssignments.length + " assignment(s) could not be placed: " +
+        invalidValues.slice(0,8).join(", ") + ". Live seating was not changed."
+      );
+    }
     const validatedSeats = importedSeatSnapshot(seatRows);
-    const isTableEvent = activeEvent()?.chartType === "tables";
-    const seatImportMode = isTableEvent && !validatedSeats.bySeat.size ? "preserve" : "authoritative";
-    if (!validatedSeats.bySeat.size && seatImportMode === "authoritative") {
+    if (!validatedSeats.bySeat.size) {
       const expectedSeatHelp = activeEvent()?.chartType === "tables"
-        ? "RBNYE rows must identify both table and chair, for example T004-01 or Table 4 Seat 1."
+        ? "RBNYE rows must identify both table and chair, for example 29.03 (table 29, chair 3), T004-01, or Table 4 Seat 1."
         : "Check RezMagic export columns.";
       throw new Error("No assigned seats were found. " + expectedSeatHelp + " Live seating was not changed.");
     }
@@ -2339,8 +2361,7 @@ async function preflightCSV(file) {
       cancelledRezIds:[...cancelledRezIds],
       held,
       removed,
-      discardedSensitiveHeaders,
-      seatImportMode
+      discardedSensitiveHeaders
     };
 
     showPrivacyPreflight();
@@ -2369,10 +2390,6 @@ function showPrivacyPreflight() {
     '<div class="privacy-stat"><b>' + p.discardedSensitiveHeaders.length + '</b><br>Sensitive columns discarded</div>' +
     '<div class="privacy-stat"><b>' + removedCount + '</b><br>Private items removed from free text</div>';
 
-  const seatingImportNote = p.seatImportMode === "preserve"
-    ? '<div class="privacy-ok" style="margin-top:9px"><b>Table seating preserved:</b> this RBNYE file has no table/chair assignments, so it will update the roster without changing any table seats already assigned in the manager.</div>'
-    : '';
-
   $("privacyHeld").innerHTML =
     (p.held.length
       ? '<div class="privacy-hold">' + p.held.length + ' higher-risk comment item(s) will NOT be uploaded raw.</div>' +
@@ -2382,7 +2399,6 @@ function showPrivacyPreflight() {
         ).join("<br>") +
         '</div>'
       : '<div class="privacy-ok">Privacy preflight passed.</div>') +
-    seatingImportNote +
     '<div class="small" style="margin-top:9px"><b>Upload whitelist:</b> Rez number, guest name, seat, sanitized comments/requests, category name, category code, occupancy number, reservation date, check-in, check-out, length of stay, and seat-upgrade presence. Raw CSV, email, phone, address, balance/payment, and unrelated RezMagic fields are not stored.</div>';
 
   $("privacyModal").style.display = "flex";
@@ -2689,9 +2705,7 @@ async function executeImport() {
 
     const importedRezIds = new Set(p.rezVals.map(v => String(v.rez_id)));
     const removedUpgradeRequests = await reconcileRemovedUpgradeRequests(importedRezIds, now);
-    const reconciliation = p.seatImportMode === "preserve"
-      ? {assigned:assignments.length, cleared:0, released:0, preserved:assignments.length}
-      : await applyAuthoritativeRezMagicSeats(p.seatRows, importedRezIds, now);
+    const reconciliation = await applyAuthoritativeRezMagicSeats(p.seatRows, importedRezIds, now);
 
     // Reconcile people within an otherwise active reservation too.  A CSV may
     // remove or rename a guest while retaining the reservation number; those
@@ -2741,7 +2755,7 @@ async function executeImport() {
         source_of_truth:"RezMagic CSV",
         assigned_seats:reconciliation.assigned,
         released_assignments:reconciliation.released,
-        preserved_assignments:reconciliation.preserved || 0,
+        preserved_assignments:0,
         cleared_queue_items:reconciliation.cleared,
         removed_upgrade_requests:removedUpgradeRequests.length,
         cancelled_reservations:p.cancelledRezIds.length,
@@ -2753,14 +2767,13 @@ async function executeImport() {
     await loadAll({quiet:true});
     await saveSnapshot("Auto · After RezMagic import · " + new Date().toLocaleString());
 
-    const importMessage = p.seatImportMode === "preserve"
-      ? "RBNYE roster import complete. No table/chair assignments were included, so " +
-        reconciliation.preserved + " existing table seat record(s) were preserved. Raw CSV was not stored."
-      : "RezMagic import complete. RezMagic is now the complete seating source: " +
-        reconciliation.assigned + " assigned · " +
-        reconciliation.released + " prior seat record(s) replaced · " +
-        reconciliation.cleared + " queue item(s) cleared. Raw CSV was not stored.";
-    setStatus(importMessage, "ok");
+    setStatus(
+      "RezMagic import complete. RezMagic is now the complete seating source: " +
+      reconciliation.assigned + " assigned · " +
+      reconciliation.released + " prior seat record(s) replaced · " +
+      reconciliation.cleared + " queue item(s) cleared. Raw CSV was not stored.",
+      "ok"
+    );
   } catch (error) {
     setStatus("Import stopped: " + error.message + ". The map was reloaded from the shared database; do not treat it as current until the import reports complete.", "warn");
     await loadAll({quiet:true});
