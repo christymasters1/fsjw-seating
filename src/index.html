@@ -311,7 +311,7 @@ button[disabled]{opacity:.58;cursor:not-allowed}
     min-width:0;
     width:100%;
     max-height:none;
-    overflow:hidden;
+    overflow:auto;
     position:sticky;
     top:8px;
     align-self:start;
@@ -360,6 +360,40 @@ button[disabled]{opacity:.58;cursor:not-allowed}
 .rbnyeKey{align-self:stretch;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px dashed #b6c2d6;border-radius:10px;color:var(--navy);font-size:11px;font-weight:800;text-align:center;line-height:1.35;padding:6px}.rbnyeKey b{font-size:17px}.rbnyeLegend{display:flex;flex-wrap:wrap;gap:12px;padding:0 20px 18px;color:#4f5863;font-size:12px}.rbnyeLegend span{display:flex;align-items:center;gap:6px}.rbnyeLegend i{display:inline-block;width:13px;height:13px;border-radius:50%;background:#f5dc4f;border:1px solid #d9bd22}.rbnyeLegend i.blue{background:#2b4692;border-color:#1f3571}
 @media(max-width:850px){.rbnyePreviewHead{display:block}.rbnyePreviewHead p{margin-bottom:8px}}
 .tableMap{min-width:1080px}.rbnyeLiveHead{display:flex;align-items:center;gap:16px;margin-bottom:12px}.rbnyeLiveHead .rbnyeStage{flex:1;min-height:54px;border-radius:8px;background:var(--navy);color:#fff;font-size:18px}.rbnyeLiveDance{flex:1;min-height:54px;display:flex;align-items:center;justify-content:center;border:2px solid #596270;color:#27313a;font-size:11px;font-weight:900;letter-spacing:.04em}.rbnyeLiveLegend{display:flex;flex-wrap:wrap;gap:11px;margin:0 0 12px;font-size:11px;color:#505866}.rbnyeLiveLegend span{display:flex;align-items:center;gap:5px}.rbnyeLiveLegend i{display:inline-block;width:14px;height:14px;border-radius:50%;border:1px solid #b8c0ca;background:var(--gold-seat)}.rbnyeLiveLegend i.blue{background:var(--blue-seat);border-color:#9aace6}.rbnyeLiveRows{display:flex;flex-direction:column;gap:14px;padding:3px 0 8px}.rbnyeLiveRow{display:grid;grid-template-columns:4fr 6fr 4fr;align-items:center;gap:26px;min-height:88px}.rbnyeLiveBank{display:flex;align-items:center;justify-content:center;gap:4px;min-width:0}.rbnyeLiveSpacer{min-height:88px}.rbnyeLiveTable{position:relative;flex:0 0 82px;width:82px;height:82px}.rbnyeLiveTableCircle{position:absolute;inset:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #d9c566;background:var(--gold-seat);color:#594b10;font-size:15px;font-weight:900;box-shadow:inset 0 0 0 3px rgba(255,255,255,.58)}.rbnyeLiveTable.blue .rbnyeLiveTableCircle{border-color:#9aace6;background:var(--blue-seat);color:var(--navy)}.rbnyeSeat{position:absolute!important;width:18px!important;height:18px!important;min-width:18px!important;border-radius:50%!important;padding:0!important;z-index:2;font-size:7px!important;font-weight:900!important;background:#fff!important;border:1px solid #bac2cd!important;color:#35404c!important}.rbnyeLiveTable.blue .rbnyeSeat{border-color:#91a5e3!important}.rbnyeSeat.occ{background:var(--occupied)!important;color:#fff!important;border-color:#7e858c!important}.rbnyeSeat.moving{background:var(--green)!important;color:#fff!important;border-color:#08783e!important}.rbnyeSeat.same{outline:3px solid var(--same)!important;outline-offset:1px!important}.rbnyeSeat.linked{outline:3px solid var(--linked)!important;outline-offset:1px!important}.rbnyeSeat[data-position="0"]{top:0;left:32px}.rbnyeSeat[data-position="1"]{top:3px;left:54px}.rbnyeSeat[data-position="2"]{top:18px;left:66px}.rbnyeSeat[data-position="3"]{top:42px;left:66px}.rbnyeSeat[data-position="4"]{top:61px;left:53px}.rbnyeSeat[data-position="5"]{top:64px;left:32px}.rbnyeSeat[data-position="6"]{top:61px;left:11px}.rbnyeSeat[data-position="7"]{top:42px;left:-2px}.rbnyeSeat[data-position="8"]{top:18px;left:-2px}.rbnyeSeat[data-position="9"]{top:3px;left:10px}
+
+/* Cathy’s 17-inch Windows laptop typically has about 1366 CSS pixels across
+   after Edge’s browser chrome. Keep all 14 RBNYE tables on screen at that
+   practical desktop width instead of cropping the outer tables. */
+@media (min-width:1201px) and (max-width:1600px){
+  .workspace{
+    grid-template-columns:minmax(185px,215px) minmax(0,1fr) minmax(150px,180px);
+    gap:6px;
+  }
+  .mapcard{padding:8px;overflow:auto}
+  .tableMap{min-width:0;width:100%}
+  .rbnyeLiveHead{gap:8px;margin-bottom:8px}
+  .rbnyeLiveHead .rbnyeStage,.rbnyeLiveDance{min-height:46px;font-size:11px}
+  .rbnyeLiveHead .rbnyeStage{font-size:16px}
+  .rbnyeLiveLegend{gap:7px;margin-bottom:8px;font-size:10px}
+  .rbnyeLiveLegend i{width:12px;height:12px}
+  .rbnyeLiveRows{gap:7px;padding:2px 0 6px}
+  .rbnyeLiveRow{gap:8px;min-height:58px}
+  .rbnyeLiveBank{gap:1px}
+  .rbnyeLiveSpacer{min-height:58px}
+  .rbnyeLiveTable{flex:0 0 55px;width:55px;height:55px}
+  .rbnyeLiveTableCircle{inset:11px;font-size:12px}
+  .rbnyeSeat{width:14px!important;height:14px!important;min-width:14px!important;font-size:6px!important}
+  .rbnyeSeat[data-position="0"]{top:0;left:20px}
+  .rbnyeSeat[data-position="1"]{top:2px;left:36px}
+  .rbnyeSeat[data-position="2"]{top:12px;left:46px}
+  .rbnyeSeat[data-position="3"]{top:29px;left:46px}
+  .rbnyeSeat[data-position="4"]{top:40px;left:36px}
+  .rbnyeSeat[data-position="5"]{top:42px;left:20px}
+  .rbnyeSeat[data-position="6"]{top:40px;left:4px}
+  .rbnyeSeat[data-position="7"]{top:29px;left:-5px}
+  .rbnyeSeat[data-position="8"]{top:12px;left:-5px}
+  .rbnyeSeat[data-position="9"]{top:2px;left:4px}
+}
 @media(max-width:850px){.eventLandingHead{display:block}.eventGrid{grid-template-columns:1fr}.eventLandingHead h1{font-size:27px}}
 
 </style>
